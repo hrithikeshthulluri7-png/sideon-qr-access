@@ -18,6 +18,14 @@ app.use(express.urlencoded({ extended: true }));
 const db = require('./utils/database');
 db.initializeDatabase();
 
+// Rate limiting middleware (Phase 2)
+const { memberRateLimiter, failureRateLimiter } = require('./middleware/rateLimiter');
+
+// Apply rate limiting to check-in endpoints
+app.use('/api/check-in', memberRateLimiter);
+app.use('/api/verify', memberRateLimiter);
+app.use('/api/check-in-status', failureRateLimiter);
+
 // Routes
 app.use('/api', require('./routes/qrRoutes'));
 app.use('/api', require('./routes/healthRoutes'));
@@ -45,6 +53,16 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`SIDEON QR Access Backend listening on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Token expiration: ${process.env.EXPIRATION_MINUTES || 60} minutes`);
+
+  // Clean old audit logs on startup (Phase 2)
+  const AuditLogger = require('./utils/auditLogger');
+  AuditLogger.cleanOldLogs();
+
+  // Schedule daily cleanup of old audit logs
+  setInterval(() => {
+    AuditLogger.cleanOldLogs();
+  }, 24 * 60 * 60 * 1000); // Every 24 hours
 });
 
 module.exports = app;

@@ -6,9 +6,16 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node tests/demo.js"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:phase1": "node tests/demo.js"
   },
-  "keywords": ["qr", "access-control", "sideon"],
+  "keywords": [
+    "qr",
+    "access-control",
+    "sideon"
+  ],
   "author": "SIDEON",
   "license": "ISC",
   "type": "commonjs",
@@ -17,8 +24,17 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^7.1.0",
     "sqlite3": "^5.1.7",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }

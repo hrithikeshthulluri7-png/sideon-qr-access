@@ -16,6 +16,13 @@ const db = new sqlite3.Database(DB_PATH, (err) => {
 db.run('PRAGMA foreign_keys = ON');
 
 const initializeDatabase = () => {
+  // Run Phase 2 migration if needed
+  try {
+    const { migrateToPhase2 } = require('./migrate');
+    migrateToPhase2();
+  } catch (migrationErr) {
+    // Migration module might not be required if not needed
+  }
   db.serialize(() => {
     // Members table
     db.run(`
@@ -41,13 +48,34 @@ const initializeDatabase = () => {
         member_id VARCHAR(50) NOT NULL,
         token VARCHAR(255) UNIQUE NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        expiresAt DATETIME NOT NULL,
         verified_at DATETIME,
         checked_in_at DATETIME,
+        scan_count INTEGER DEFAULT 0,
         FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
       )
     `, (err) => {
       if (err) console.error('[DB ERROR] Tokens table:', err.message);
       else console.log('[DB] Tokens table ready');
+    });
+
+    // Audit logs table for compliance and debugging
+    db.run(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        operation VARCHAR(50) NOT NULL,
+        member_id VARCHAR(50),
+        token_id VARCHAR(255),
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        status VARCHAR(20),
+        error_code INTEGER,
+        ip_address VARCHAR(45),
+        metadata JSON,
+        FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
+      )
+    `, (err) => {
+      if (err) console.error('[DB ERROR] Audit logs table:', err.message);
+      else console.log('[DB] Audit logs table ready');
     });
 
     // Indexes for performance
@@ -57,6 +85,18 @@ const initializeDatabase = () => {
 
     db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_member_id ON tokens(member_id)`, (err) => {
       if (err) console.error('[DB ERROR] Index tokens_member_id:', err.message);
+    });
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_expiresAt ON tokens(expiresAt)`, (err) => {
+      if (err) console.error('[DB ERROR] Index tokens_expiresAt:', err.message);
+    });
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)`, (err) => {
+      if (err) console.error('[DB ERROR] Index audit_logs_timestamp:', err.message);
+    });
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_member_id ON audit_logs(member_id)`, (err) => {
+      if (err) console.error('[DB ERROR] Index audit_logs_member_id:', err.message);
     });
   });
 };

@@ -40,6 +40,9 @@ const validateTokenFormat = (token) => {
  * @returns {string|null} - Member ID or null if invalid format
  */
 const extractMemberIdFromToken = (token) => {
+  if (!token || typeof token !== 'string') {
+    return null;
+  }
   const match = token.match(/^SIDN_EVENT_2026_M(\d+)_/);
   return match ? match[1] : null;
 };

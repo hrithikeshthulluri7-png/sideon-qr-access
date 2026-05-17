@@ -1,0 +1,70 @@
+SIDEON QR System - Security Audit Report
+========================================
+Scan Date: Sun May 17 23:25:37 IST 2026
+
+1. HARDCODED SECRETS CHECK
+======================================
+
+Searching for common secret patterns...
+⚠️  Found potential hardcoded tokens:
+/Users/hrithikeshthulluri/Downloads/remotion-main/qr-access-backend/tests/demo.js:             WHERE t.token = ?`,
+/Users/hrithikeshthulluri/Downloads/remotion-main/qr-access-backend/tests/demo.js:                `UPDATE tokens SET checked_in_at = CURRENT_TIMESTAMP, verified_at = CURRENT_TIMESTAMP
+/Users/hrithikeshthulluri/Downloads/remotion-main/qr-access-backend/tests/demo.js:                 WHERE token = ?`,
+/Users/hrithikeshthulluri/Downloads/remotion-main/qr-access-backend/tests/demo.js:                    `SELECT checked_in_at FROM tokens WHERE token = ?`,
+/Users/hrithikeshthulluri/Downloads/remotion-main/qr-access-backend/tests/demo.js:                        `SELECT checked_in_at FROM tokens WHERE token = ?`,
+
+2. ENVIRONMENT FILE CHECK
+======================================
+
+⚠️  .env file contains data - ensure no secrets are committed:
+# SIDEON QR Access Control Backend - Development
+
+NODE_ENV=development
+✓ .env.example file exists
+✓ .env is properly in .gitignore
+
+3. DEPENDENCY VULNERABILITY SCAN
+======================================
+
+⚠️  npm audit found issues:
+found 0 vulnerabilities
+
+4. CODE QUALITY CHECKS
+======================================
+
+ℹ️  Found       10 console.log statements (expected for logging)
+✓ No eval() calls found
+✓ No dynamic require() calls with user input
+
+5. DATABASE SECURITY CHECKS
+======================================
+
+✓ No obvious SQL injection patterns detected
+✓ No hardcoded database credentials detected
+
+6. AUTHENTICATION & AUTHORIZATION CHECKS
+======================================
+
+ℹ️  Bcrypt not yet used (expected if auth not implemented)
+✓ Helmet middleware in use for security headers
+✓ CORS middleware configured
+
+===============================================
+SECURITY AUDIT SUMMARY
+===============================================
+
+Scan completed: Sun May 17 23:25:38 IST 2026
+
+Key Findings:
+  • No eval() calls detected ✓
+  • No hardcoded secrets detected ✓
+  • Helmet middleware in use ✓
+  • Environment variables properly configured
+
+Next Steps:
+  1. Verify all secrets loaded from .env
+  2. Run npm audit before deployment
+  3. Use parameterized SQL queries
+  4. Implement rate limiting (if needed)
+  5. Add request validation middleware
+

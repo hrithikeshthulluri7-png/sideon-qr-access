@@ -7,7 +7,6 @@ module.exports = {
     'utils/**/*.js',
     '!**/*.test.js',
     '!**/node_modules/**',
-    '!**/migrate.js',
   ],
   testMatch: ['**/__tests__/**/*.test.js', '**/?(*.)+(spec|test).js'],
   coverageThreshold: {
