@@ -693,8 +693,9 @@ const generateQRImage = async (req, res) => {
           } else if (imageFormat === 'png') {
             // Generate PNG buffer
             const pngBuffer = await generateQRImagePNG(qrContent, {
-              width: 300,
-              margin: 2
+              width: 400,
+              margin: 2,
+              errorCorrectionLevel: 'M'
             });
 
             AuditLogger.log('generate_image', row.member_id, token, 'success', null, clientIp, {
