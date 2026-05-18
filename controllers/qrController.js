@@ -667,9 +667,13 @@ const generateQRImage = async (req, res) => {
           // Determine format and generate image
           const imageFormat = (format || 'png').toLowerCase();
 
+          // Encode scan URL so phone opens the check-in page when scanned
+          const SCAN_BASE = process.env.SCAN_BASE_URL || 'https://hrithikeshthulluri7-png.github.io/sideon-qr-access/scan.html';
+          const qrContent = `${SCAN_BASE}?token=${encodeURIComponent(token)}`;
+
           if (imageFormat === 'svg') {
             // Generate SVG data URI
-            const svgDataUri = await generateQRImageSVG(token, {
+            const svgDataUri = await generateQRImageSVG(qrContent, {
               width: 300,
               margin: 2
             });
@@ -688,7 +692,7 @@ const generateQRImage = async (req, res) => {
             });
           } else if (imageFormat === 'png') {
             // Generate PNG buffer
-            const pngBuffer = await generateQRImagePNG(token, {
+            const pngBuffer = await generateQRImagePNG(qrContent, {
               width: 300,
               margin: 2
             });
