@@ -196,11 +196,12 @@ async function verifyToken() {
   try {
     const data = await apiFetch(`/verify?token=${encodeURIComponent(token)}`);
     if (data.success) {
+      const ts = data.token_status || {};
       const text = [
         `Valid: ${data.success}`,
-        `Member: ${data.member_id} — ${data.name}`,
-        data.is_checked_in ? `Checked in: ${fmtTime(data.checked_in_at)}` : 'Not yet checked in',
-        `Expires: ${fmtTime(data.expiresAt)}`,
+        `Member: ${data.member_id} — ${data.member?.name || '—'}`,
+        ts.is_checked_in ? `Checked in: ${fmtTime(ts.checked_in_at)}` : 'Not yet checked in',
+        `Expires: ${fmtTime(ts.expiresAt)}`,
       ].join('\n');
       setResult('lookupResult', text, 'success');
     } else {
@@ -221,7 +222,7 @@ async function checkIn() {
       body: JSON.stringify({ token }),
     });
     if (data.success) {
-      setResult('lookupResult', `Checked in: ${data.member_id} — ${data.name}\n${fmtTime(data.checked_in_at)}`, 'success');
+      setResult('lookupResult', `Checked in: ${data.member_id}\n${fmtTime(data.checked_in_at)}`, 'success');
       refreshFeed();
       refreshStats();
     } else {
