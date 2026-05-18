@@ -1,6 +1,8 @@
 node_modules/
 data/*.db
 .env
+.env.production
+.env.local
 .DS_Store
 *.log
 npm-debug.log*
@@ -8,3 +10,7 @@ npm-debug.log*
 .vscode/
 dist/
 build/
+coverage/
+logs/
+load-test-results/
+test-output.log

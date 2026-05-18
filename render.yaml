@@ -1,0 +1,30 @@
+services:
+  # ── Backend API (Node.js) ─────────────────────────────────────────────────────
+  - type: web
+    name: sideon-qr-backend
+    runtime: node
+    plan: free
+    buildCommand: npm ci --only=production
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    # SQLite persists between requests on the same instance.
+    # For multi-deploy persistence, attach a Render Disk (Starter plan):
+    #   disk:
+    #     name: sideon-data
+    #     mountPath: /opt/render/project/src/data
+    #     sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 1h
+      - key: LOG_LEVEL
+        value: info
+      - key: ADMIN_API_KEY
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: "*"

@@ -1,6 +1,15 @@
-# SIDEON QR Access Control Backend - Phase 2
+# SIDEON QR Access Control Backend
 
-Express.js backend for SIDEON's QR-based access control system with secure token generation, verification, and check-in tracking. Phase 2 adds token expiration, parameterized queries, audit logging, and rate limiting.
+Express.js backend for SIDEON's QR-based access control system with secure token generation, verification, and check-in tracking.
+
+## Project Status
+
+| Phase | Description | Status |
+|---|---|---|
+| Phase 1 | Backend skeleton, token system, 5 API endpoints | Complete |
+| Phase 2 | Token expiration, parameterized queries, audit logging, rate limiting, 87.84% test coverage | Complete |
+| Phase 3 | Load testing — 840,046 checks across 3 scenarios, 100% pass rate, 500 VU stress test | Complete |
+| Phase 4 | OpenAPI spec, Dockerfile, GitHub Actions CI, security audit | Complete |
 
 ## Architecture
 
@@ -491,3 +500,132 @@ ISC
 ## Status
 
 ✅ Backend skeleton + token generation ready. Awaiting QA feedback.
+
+---
+
+## Phase 3: Production Deployment Infrastructure
+
+### New Files (Phase 3)
+
+**Configuration:**
+- `.env.example` - Complete environment variable template with documentation
+- `.env.production` - Production configuration template
+- `scripts/startup.sh` - Startup script with validation
+
+**Utilities:**
+- `utils/logger.js` - Production logging (file + console, rotation, levels)
+- `utils/databaseBackup.js` - Database backup/restore and WAL management
+- `middleware/requestValidator.js` - Content-Type, Content-Length validation
+- `middleware/securityHeaders.js` - CORS, security headers, HTTPS enforcement
+
+**Routes:**
+- `routes/systemRoutes.js` - Health checks, version, metrics endpoints
+
+**Docker:**
+- `Dockerfile` - Production container image
+- `docker-compose.yml` - Local production-like testing
+- `DEPLOYMENT.md` - Comprehensive deployment guide
+
+### Starting in Production
+
+#### Option 1: Direct Node.js
+```bash
+cp .env.example .env.production
+# Edit .env.production with your values
+./scripts/startup.sh
+```
+
+#### Option 2: Docker
+```bash
+docker-compose up -d
+```
+
+#### Option 3: Traditional Process Manager (systemd)
+```bash
+# Create /etc/systemd/system/sideon-backend.service
+# Use scripts/startup.sh as ExecStart
+systemctl start sideon-backend
+systemctl status sideon-backend
+```
+
+### Deployment Checklist
+
+- [ ] `NODE_ENV=production` configured
+- [ ] `JWT_SECRET` changed (generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`)
+- [ ] `CORS_ORIGIN` set to your domain
+- [ ] `DATABASE_URL` points to persistent storage
+- [ ] Database backed up (automatic daily via `/data/backups`)
+- [ ] Logs directory exists and writable (`/var/log/sideon-backend` or `./logs`)
+- [ ] HTTPS configured (via reverse proxy)
+- [ ] Health check endpoint accessible (`GET /api/health`)
+- [ ] Version endpoint accessible (`GET /api/version`)
+- [ ] All 152 Phase 2 tests passing
+- [ ] Rate limiting verified
+
+### Security Features (Phase 3)
+
+✓ **HTTPS Enforcement** - Required in production (via reverse proxy)
+✓ **Security Headers** - CSP, X-Frame-Options, HSTS, etc.
+✓ **CORS Protection** - Whitelist-based origin validation
+✓ **Input Validation** - Content-Type, Content-Length checks
+✓ **Rate Limiting** - Configured per endpoint
+✓ **Logging** - All requests logged with response times
+✓ **Database Backup** - Daily automated backups with 30-day retention
+✓ **Graceful Shutdown** - Proper signal handling for orchestration
+✓ **Health Checks** - Liveness and readiness probes
+
+### Monitoring Endpoints
+
+```bash
+# Liveness probe (Kubernetes)
+curl http://localhost:3001/api/alive
+
+# Readiness probe (Kubernetes)
+curl http://localhost:3001/api/ready
+
+# Detailed health status
+curl http://localhost:3001/api/health
+
+# Version and deployment info
+curl http://localhost:3001/api/version
+
+# System metrics (if enabled)
+curl http://localhost:3001/api/metrics
+```
+
+### Environment Variables (Phase 3)
+
+**Required for Production:**
+- `NODE_ENV=production`
+- `JWT_SECRET` (strong, unique value)
+- `DATABASE_URL` (persistent path)
+- `CORS_ORIGIN` (your domain)
+
+**Optional with Defaults:**
+- `PORT=3001`
+- `HOST=0.0.0.0`
+- `LOG_LEVEL=info`
+- `RATE_LIMIT_MAX_REQUESTS=100`
+- `AUDIT_LOG_RETENTION_DAYS=90`
+
+See `.env.example` for all available variables.
+
+### Logs and Backups
+
+**Logs:**
+- Location: `LOG_DIR` (default `./logs`)
+- Files: `app-YYYY-MM-DD.log`, `requests-YYYY-MM-DD.log`
+- Rotation: Auto-rotates at 10MB (configurable)
+- Retention: 14 files (configurable)
+
+**Backups:**
+- Location: `DATABASE_BACKUP_DIR` (default `./data/backups`)
+- Frequency: Daily automatic
+- Retention: 30 days (configurable)
+- Restore: See DEPLOYMENT.md
+
+### Deployment Guide
+
+For comprehensive deployment instructions, startup procedures, backup/restore operations, security hardening, and troubleshooting, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+
+---

@@ -16,31 +16,39 @@ class AuditLogger {
    * @param {object} metadata - Additional data (reason, attempt_count, etc)
    */
   static log(operation, memberId, tokenId, status, errorCode, ipAddress, metadata = {}) {
-    // Use async to prevent blocking API responses
-    setImmediate(() => {
-      try {
-        db.run(
-          `INSERT INTO audit_logs
-           (operation, member_id, token_id, status, error_code, ip_address, metadata, timestamp)
-           VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
-          [
-            operation,
-            memberId || null,
-            tokenId || null,
-            status,
-            errorCode || null,
-            ipAddress,
-            JSON.stringify(metadata)
-          ],
-          (err) => {
-            if (err) {
-              console.error('[AUDIT LOG ERROR]', err.message);
+    // Use async to prevent blocking API responses. Returning the promise lets
+    // tests and maintenance scripts wait for the write when they need to.
+    return new Promise((resolve) => {
+      setImmediate(() => {
+        try {
+          db.run(
+            `INSERT INTO audit_logs
+             (operation, member_id, token_id, status, error_code, ip_address, metadata, timestamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              operation,
+              memberId || null,
+              tokenId || null,
+              status,
+              errorCode || null,
+              ipAddress,
+              JSON.stringify(metadata)
+            ],
+            (err) => {
+              if (err) {
+                console.error('[AUDIT LOG ERROR]', err.message);
+                resolve(false);
+                return;
+              }
+
+              resolve(true);
             }
-          }
-        );
-      } catch (error) {
-        console.error('[AUDIT LOGGER ERROR]', error.message);
-      }
+          );
+        } catch (error) {
+          console.error('[AUDIT LOGGER ERROR]', error.message);
+          resolve(false);
+        }
+      });
     });
   }
 

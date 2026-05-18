@@ -1,6 +1,8 @@
 const { db } = require('../utils/database');
 const { generateToken, validateTokenFormat } = require('../utils/tokenGenerator');
 const AuditLogger = require('../utils/auditLogger');
+const { signJWT } = require('../utils/jwtService');
+const { checkRateLimit, recordFailure } = require('../utils/slidingWindowRateLimiter');
 
 // Token expiration window in minutes (configurable via env var)
 const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '60', 10);
@@ -92,15 +94,27 @@ const generateQR = (req, res) => {
               });
             }
 
+            // Phase 3: Generate JWT token alongside database token
+            let jwtToken;
+            try {
+              jwtToken = signJWT(member_id, token);
+            } catch (jwtErr) {
+              console.error('[JWT ERROR] Failed to generate JWT:', jwtErr.message);
+              // Continue without JWT - fallback to database token only
+              jwtToken = null;
+            }
+
             console.log(`[TOKEN] Generated token for member ${member_id}: ${token}`);
             AuditLogger.log('generate', member_id, token, 'success', null, clientIp, {
               expiresAt: expiresAt,
-              expirationMinutes: EXPIRATION_MINUTES
+              expirationMinutes: EXPIRATION_MINUTES,
+              jwt_issued: !!jwtToken
             });
 
             res.status(201).json({
               success: true,
               token: token,
+              jwt: jwtToken, // Phase 3: JWT token for Authorization header
               member_id: member_id,
               created_at: new Date().toISOString(),
               expiresAt: expiresAt,
@@ -187,9 +201,12 @@ const verifyToken = (req, res) => {
           AuditLogger.log('verify_attempt', null, token, 'failure', 404, clientIp, {
             reason: 'Token not found'
           });
-          return res.status(404).json({
+          return res.status(200).json({
+            success: false,
             error: 'Token not found or invalid',
-            code: 404
+            code: 404,
+            token: token,
+            is_valid: false
           });
         }
 
@@ -202,9 +219,14 @@ const verifyToken = (req, res) => {
             reason: 'Token expired',
             expiresAt: row.expiresAt
           });
-          return res.status(410).json({
+          return res.status(200).json({
+            success: false,
             error: 'This QR code has expired',
             code: 410,
+            token: token,
+            member_id: row.member_id,
+            is_valid: false,
+            is_expired: true,
             expiredAt: row.expiresAt,
             message: `This QR code expired at ${expiresAt.toISOString()}`
           });
@@ -229,6 +251,7 @@ const verifyToken = (req, res) => {
         res.status(200).json({
           success: true,
           token: row.token,
+          member_id: row.member_id,
           member: {
             id: row.member_id,
             name: row.name,
@@ -326,9 +349,12 @@ const checkIn = (req, res) => {
           AuditLogger.log('check_in', null, token, 'failure', 404, clientIp, {
             reason: 'Token not found'
           });
-          return res.status(404).json({
+          return res.status(200).json({
+            success: false,
             error: 'Token not found',
-            code: 404
+            code: 404,
+            token: token,
+            is_valid: false
           });
         }
 
@@ -342,9 +368,14 @@ const checkIn = (req, res) => {
             reason: 'Token expired',
             expiresAt: row.expiresAt
           });
-          return res.status(410).json({
+          return res.status(200).json({
+            success: false,
             error: 'This QR code has expired',
             code: 410,
+            token: token,
+            member_id: memberId,
+            is_valid: false,
+            is_expired: true,
             expiredAt: row.expiresAt,
             details: `This QR code expired at ${expiresAt.toISOString()}`,
             retryAfter: 3600
@@ -358,11 +389,16 @@ const checkIn = (req, res) => {
             previousCheckInAt: row.checked_in_at,
             duplicate: true
           });
-          return res.status(409).json({
+          return res.status(200).json({
+            success: false,
             error: 'Token already checked in',
             code: 409,
+            token: token,
+            member_id: memberId,
             checked_in_at: row.checked_in_at,
-            message: 'This member has already checked in with this QR code'
+            check_in_time: row.checked_in_at,
+            message: 'This member has already checked in with this QR code',
+            is_duplicate: true
           });
         }
 
@@ -394,10 +430,14 @@ const checkIn = (req, res) => {
                 reason: 'Concurrent check-in detected',
                 concurrent: true
               });
-              return res.status(409).json({
+              return res.status(200).json({
+                success: false,
                 error: 'Token already checked in',
                 code: 409,
-                message: 'This token was checked in by another request. This is the second check-in attempt.'
+                token: token,
+                member_id: memberId,
+                message: 'This token was checked in by another request. This is the second check-in attempt.',
+                is_duplicate: true
               });
             }
 
@@ -415,6 +455,7 @@ const checkIn = (req, res) => {
               member_id: memberId,
               verified_at: checkedInAt,
               checked_in_at: checkedInAt,
+              check_in_time: checkedInAt,
               scan_count: row.scan_count + 1
             });
           }
@@ -489,9 +530,12 @@ const checkInStatus = (req, res) => {
           AuditLogger.log('status_check', null, token, 'failure', 404, clientIp, {
             reason: 'Token not found'
           });
-          return res.status(404).json({
+          return res.status(200).json({
+            success: false,
             error: 'Token not found',
-            code: 404
+            code: 404,
+            token: token,
+            is_valid: false
           });
         }
 
@@ -533,9 +577,353 @@ const checkInStatus = (req, res) => {
   }
 };
 
+/**
+ * GET /api/generate-qr-image?token=X
+ * Generate a scannable QR code image from a token string
+ *
+ * Phase 3 enhancement:
+ * - Returns actual QR image (PNG format)
+ * - Token must be a valid format
+ * - Sets appropriate Content-Type header
+ * - Includes error handling for invalid/expired tokens
+ * - Supports optional image format parameter (png or svg)
+ *
+ * Query Parameters:
+ * - token (required): The QR token to encode
+ * - format (optional): 'png' (default) or 'svg'
+ */
+const generateQRImage = async (req, res) => {
+  try {
+    const { token, format } = req.query;
+    const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+
+    if (!token) {
+      AuditLogger.log('generate_image', null, null, 'failure', 400, clientIp, {
+        reason: 'Missing token parameter'
+      });
+      return res.status(400).json({
+        error: 'token query parameter is required',
+        code: 400
+      });
+    }
+
+    // Validate token format
+    if (!validateTokenFormat(token)) {
+      AuditLogger.log('generate_image', null, token, 'failure', 400, clientIp, {
+        reason: 'Invalid token format'
+      });
+      return res.status(400).json({
+        error: 'Invalid token format',
+        code: 400
+      });
+    }
+
+    // Import QR image generator
+    const { generateQRImagePNG, generateQRImageSVG } = require('../utils/qrImageGenerator');
+
+    // Validate token exists and is not expired (parameterized query)
+    db.get(
+      `SELECT id, member_id, expiresAt FROM tokens WHERE token = ?`,
+      [token],
+      async (err, row) => {
+        if (err) {
+          console.error('[DB ERROR] Generate image lookup:', err.message);
+          AuditLogger.log('generate_image', null, token, 'failure', 500, clientIp, {
+            reason: 'Database error',
+            error: err.message
+          });
+          return res.status(500).json({
+            error: 'Database error',
+            code: 500
+          });
+        }
+
+        if (!row) {
+          AuditLogger.log('generate_image', null, token, 'failure', 404, clientIp, {
+            reason: 'Token not found'
+          });
+          return res.status(404).json({
+            error: 'Token not found or invalid',
+            code: 404
+          });
+        }
+
+        // Check token expiration
+        const now = new Date();
+        const expiresAt = new Date(row.expiresAt);
+
+        if (now > expiresAt) {
+          AuditLogger.log('generate_image', row.member_id, token, 'failure', 410, clientIp, {
+            reason: 'Token expired'
+          });
+          return res.status(410).json({
+            error: 'This QR code has expired',
+            code: 410,
+            expiredAt: row.expiresAt
+          });
+        }
+
+        try {
+          // Determine format and generate image
+          const imageFormat = (format || 'png').toLowerCase();
+
+          if (imageFormat === 'svg') {
+            // Generate SVG data URI
+            const svgDataUri = await generateQRImageSVG(token, {
+              width: 300,
+              margin: 2
+            });
+
+            AuditLogger.log('generate_image', row.member_id, token, 'success', null, clientIp, {
+              format: 'svg'
+            });
+
+            // Return SVG as data URI (useful for embedding)
+            return res.status(200).json({
+              success: true,
+              token: token,
+              format: 'svg',
+              data: svgDataUri,
+              contentType: 'image/svg+xml'
+            });
+          } else if (imageFormat === 'png') {
+            // Generate PNG buffer
+            const pngBuffer = await generateQRImagePNG(token, {
+              width: 300,
+              margin: 2
+            });
+
+            AuditLogger.log('generate_image', row.member_id, token, 'success', null, clientIp, {
+              format: 'png',
+              size: pngBuffer.length
+            });
+
+            // Set appropriate headers for PNG image
+            res.type('image/png');
+            res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+            res.set('Pragma', 'no-cache');
+            res.set('Expires', '0');
+            return res.send(pngBuffer);
+          } else {
+            return res.status(400).json({
+              error: 'Invalid format. Use "png" or "svg"',
+              code: 400,
+              supported: ['png', 'svg']
+            });
+          }
+        } catch (imageError) {
+          console.error('[QR ERROR] Image generation failed:', imageError.message);
+          AuditLogger.log('generate_image', row.member_id, token, 'failure', 500, clientIp, {
+            reason: 'QR image generation failed',
+            error: imageError.message
+          });
+
+          return res.status(500).json({
+            error: 'QR image generation failed',
+            code: 500,
+            details: imageError.message
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('[ERROR] generateQRImage:', error.message);
+    AuditLogger.log('generate_image', null, null, 'failure', 500, req.ip, {
+      reason: 'Unexpected error',
+      error: error.message
+    });
+    res.status(500).json({
+      error: 'Internal server error',
+      code: 500
+    });
+  }
+};
+
+/**
+ * POST /api/verify-jwt
+ * Verify a JWT token and validate it against the database token (Phase 3)
+ *
+ * Expected request body:
+ * {
+ *   "jwt": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ * }
+ *
+ * Phase 3 enhancements:
+ * - JWT signature verification
+ * - Cross-check JWT token_id with database
+ * - Token expiration validation
+ * - Sliding window rate limiting for verify attempts
+ * - Progressive backoff on repeated failures
+ * - Audit logging for all verify attempts
+ */
+const verifyJWTToken = async (req, res) => {
+  try {
+    const { jwt } = req.body;
+    const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+
+    if (!jwt) {
+      AuditLogger.log('jwt_verify', null, null, 'failure', 400, clientIp, {
+        reason: 'Missing JWT in request body'
+      });
+      return res.status(400).json({
+        error: 'jwt is required in request body',
+        code: 400
+      });
+    }
+
+    // JWT verification
+    let decoded;
+    try {
+      const { verifyJWT } = require('../utils/jwtService');
+      decoded = verifyJWT(jwt);
+    } catch (jwtErr) {
+      const failureResult = await recordFailure(`jwt_verify_${clientIp}`);
+
+      AuditLogger.log('jwt_verify', null, jwt, 'failure', 401, clientIp, {
+        reason: 'JWT verification failed',
+        error: jwtErr.message,
+        failureCount: failureResult.failureCount,
+        inBackoff: failureResult.backoffActive
+      });
+
+      const response = {
+        error: 'Invalid or expired JWT token',
+        code: 401,
+        message: jwtErr.message
+      };
+
+      if (failureResult.backoffActive) {
+        response.cooldownRemaining = failureResult.cooldownRemaining;
+        response.retryAfter = failureResult.cooldownRemaining;
+      }
+
+      return res.status(401).json(response);
+    }
+
+    // Verify JWT token exists in database
+    db.get(
+      'SELECT id, member_id, token, expiresAt, checked_in_at FROM tokens WHERE token = ?',
+      [decoded.token_id],
+      async (err, row) => {
+        try {
+          if (err) {
+            console.error('[DB ERROR] JWT verify lookup:', err.message);
+            AuditLogger.log('jwt_verify', decoded.member_id, decoded.token_id, 'failure', 500, clientIp, {
+              reason: 'Database error',
+              error: err.message
+            });
+            return res.status(500).json({
+              error: 'Database error',
+              code: 500
+            });
+          }
+
+          if (!row) {
+            const failureResult = await recordFailure(`jwt_verify_${clientIp}`);
+
+            AuditLogger.log('jwt_verify', decoded.member_id, decoded.token_id, 'failure', 404, clientIp, {
+              reason: 'Token not found in database',
+              failureCount: failureResult.failureCount
+            });
+
+            return res.status(404).json({
+              error: 'Token not found',
+              code: 404,
+              message: 'JWT token does not exist in database'
+            });
+          }
+
+          // Verify token expiration
+          const now = new Date();
+          const expiresAt = new Date(row.expiresAt);
+
+          if (now > expiresAt) {
+            const failureResult = await recordFailure(`jwt_verify_${clientIp}`);
+
+            AuditLogger.log('jwt_verify', decoded.member_id, decoded.token_id, 'failure', 410, clientIp, {
+              reason: 'Token expired',
+              expiresAt: row.expiresAt
+            });
+
+            return res.status(410).json({
+              error: 'Token has expired',
+              code: 410,
+              expiredAt: row.expiresAt
+            });
+          }
+
+          // Check rate limit for verify attempts
+          const rateLimitResult = await checkRateLimit(
+            `verify_${decoded.token_id}`,
+            3, // 3 verify attempts per token
+            60  // per 60 seconds
+          );
+
+          if (!rateLimitResult.allowed) {
+            AuditLogger.log('jwt_verify', decoded.member_id, decoded.token_id, 'failure', 429, clientIp, {
+              reason: 'Rate limit exceeded',
+              remaining: rateLimitResult.remaining
+            });
+
+            return res.status(429).json({
+              error: 'Too many verify attempts',
+              code: 429,
+              message: `Maximum 3 verify attempts per minute. Try again in ${rateLimitResult.resetTime - Math.floor(Date.now() / 1000)} seconds.`,
+              retryAfter: rateLimitResult.resetTime - Math.floor(Date.now() / 1000),
+              'X-RateLimit-Remaining': rateLimitResult.remaining,
+              'X-RateLimit-Reset': rateLimitResult.resetTime
+            });
+          }
+
+          // JWT verified successfully
+          AuditLogger.log('jwt_verify', decoded.member_id, decoded.token_id, 'success', null, clientIp, {
+            isCheckedIn: !!row.checked_in_at
+          });
+
+          // Set rate limit headers before sending response
+          res.set('X-RateLimit-Remaining', rateLimitResult.remaining);
+          res.set('X-RateLimit-Reset', rateLimitResult.resetTime);
+
+          res.status(200).json({
+            success: true,
+            message: 'JWT token verified successfully',
+            member_id: decoded.member_id,
+            token_id: decoded.token_id,
+            is_checked_in: !!row.checked_in_at,
+            checked_in_at: row.checked_in_at
+          });
+        } catch (innerErr) {
+          console.error('[ERROR] verifyJWTToken inner:', innerErr.message);
+          AuditLogger.log('jwt_verify', decoded?.member_id, decoded?.token_id, 'failure', 500, clientIp, {
+            reason: 'Unexpected error',
+            error: innerErr.message
+          });
+          res.status(500).json({
+            error: 'Internal server error',
+            code: 500
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error('[ERROR] verifyJWTToken:', error.message);
+    const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+    AuditLogger.log('jwt_verify', null, null, 'failure', 500, clientIp, {
+      reason: 'Unexpected error',
+      error: error.message
+    });
+    res.status(500).json({
+      error: 'Internal server error',
+      code: 500
+    });
+  }
+};
+
 module.exports = {
   generateQR,
   verifyToken,
+  verifyJWTToken,
   checkIn,
-  checkInStatus
+  checkInStatus,
+  generateQRImage
 };

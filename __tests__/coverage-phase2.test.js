@@ -179,127 +179,84 @@ describe('Database Module', () => {
 // ============================================================================
 
 describe('AuditLogger Module', () => {
-  beforeEach(() => {
+  const getAuditRows = (sql) => new Promise((resolve, reject) => {
+    db.all(sql, (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows);
+    });
+  });
+
+  beforeEach((done) => {
     // Clear audit logs before each test
-    db.run(`DELETE FROM audit_logs`, () => {});
+    db.run(`DELETE FROM audit_logs`, done);
   });
 
   describe('log() method', () => {
-    it('should log token generation success', (done) => {
-      AuditLogger.log('generate', '00147', 'test_token_123', 'success', null, '127.0.0.1', {
+    it('should log token generation success', async () => {
+      await AuditLogger.log('generate', '00147', 'test_token_123', 'success', null, '127.0.0.1', {
         expiresAt: new Date().toISOString()
       });
 
-      // Wait for async logging
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'generate'`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            expect(rows.length).toBeGreaterThan(0);
-            const log = rows[rows.length - 1];
-            expect(log.operation).toBe('generate');
-            expect(log.member_id).toBe('00147');
-            expect(log.status).toBe('success');
-            expect(log.ip_address).toBe('127.0.0.1');
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'generate'`);
+      expect(rows.length).toBeGreaterThan(0);
+      const log = rows[rows.length - 1];
+      expect(log.operation).toBe('generate');
+      expect(log.member_id).toBe('00147');
+      expect(log.status).toBe('success');
+      expect(log.ip_address).toBe('127.0.0.1');
     });
 
-    it('should log token generation failure with error code', (done) => {
-      AuditLogger.log('generate', '00147', null, 'failure', 400, '127.0.0.1', {
+    it('should log token generation failure with error code', async () => {
+      await AuditLogger.log('generate', '00147', null, 'failure', 400, '127.0.0.1', {
         reason: 'Missing required fields'
       });
 
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'generate' AND status = 'failure'`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            expect(rows.length).toBeGreaterThan(0);
-            const log = rows[rows.length - 1];
-            expect(log.error_code).toBe(400);
-            expect(log.status).toBe('failure');
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'generate' AND status = 'failure'`);
+      expect(rows.length).toBeGreaterThan(0);
+      const log = rows[rows.length - 1];
+      expect(log.error_code).toBe(400);
+      expect(log.status).toBe('failure');
     });
 
-    it('should log verification attempts', (done) => {
-      AuditLogger.log('verify_attempt', '00147', 'test_token_456', 'success', null, '127.0.0.1', {
+    it('should log verification attempts', async () => {
+      await AuditLogger.log('verify_attempt', '00147', 'test_token_456', 'success', null, '127.0.0.1', {
         scanCount: 1
       });
 
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'verify_attempt'`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            expect(rows.length).toBeGreaterThan(0);
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'verify_attempt'`);
+      expect(rows.length).toBeGreaterThan(0);
     });
 
-    it('should log check-in operations', (done) => {
-      AuditLogger.log('check_in', '00147', 'test_token_789', 'success', null, '127.0.0.1', {
+    it('should log check-in operations', async () => {
+      await AuditLogger.log('check_in', '00147', 'test_token_789', 'success', null, '127.0.0.1', {
         checkedInAt: new Date().toISOString()
       });
 
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'check_in'`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            expect(rows.length).toBeGreaterThan(0);
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'check_in'`);
+      expect(rows.length).toBeGreaterThan(0);
     });
 
-    it('should handle null/missing optional fields', (done) => {
-      AuditLogger.log('verify_attempt', null, null, 'failure', 400, '127.0.0.1', {});
+    it('should handle null/missing optional fields', async () => {
+      await AuditLogger.log('verify_attempt', null, null, 'failure', 400, '127.0.0.1', {});
 
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'verify_attempt' AND member_id IS NULL`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            expect(rows.length).toBeGreaterThan(0);
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'verify_attempt' AND member_id IS NULL`);
+      expect(rows.length).toBeGreaterThan(0);
     });
 
-    it('should store metadata as JSON', (done) => {
+    it('should store metadata as JSON', async () => {
       const metadata = { reason: 'test', count: 5, nested: { key: 'value' } };
-      AuditLogger.log('generate', '00147', 'test_token', 'success', null, '127.0.0.1', metadata);
+      await AuditLogger.log('generate', '00147', 'test_token', 'success', null, '127.0.0.1', metadata);
 
-      setTimeout(() => {
-        db.all(
-          `SELECT * FROM audit_logs WHERE operation = 'generate' LIMIT 1`,
-          (err, rows) => {
-            expect(err).toBeNull();
-            if (rows.length > 0) {
-              const log = rows[rows.length - 1];
-              const storedMetadata = JSON.parse(log.metadata);
-              expect(storedMetadata.reason).toBe('test');
-              expect(storedMetadata.count).toBe(5);
-              expect(storedMetadata.nested.key).toBe('value');
-            }
-            done();
-          }
-        );
-      }, 50);
+      const rows = await getAuditRows(`SELECT * FROM audit_logs WHERE operation = 'generate' LIMIT 1`);
+      expect(rows.length).toBeGreaterThan(0);
+      const log = rows[rows.length - 1];
+      const storedMetadata = JSON.parse(log.metadata);
+      expect(storedMetadata.reason).toBe('test');
+      expect(storedMetadata.count).toBe(5);
+      expect(storedMetadata.nested.key).toBe('value');
     });
 
-    it('should handle database errors gracefully', (done) => {
+    it('should handle database errors gracefully', async () => {
       // Override db.run to simulate error
       const originalRun = db.run;
       db.run = function(sql, params, callback) {
@@ -307,24 +264,23 @@ describe('AuditLogger Module', () => {
       };
 
       // Should not throw, just log error
-      expect(() => {
-        AuditLogger.log('generate', '00147', 'token', 'success', null, '127.0.0.1', {});
-      }).not.toThrow();
-
-      db.run = originalRun;
-      done();
+      try {
+        await expect(
+          AuditLogger.log('generate', '00147', 'token', 'success', null, '127.0.0.1', {})
+        ).resolves.toBe(false);
+      } finally {
+        db.run = originalRun;
+      }
     });
 
-    it('should handle JSON stringify errors', (done) => {
+    it('should handle JSON stringify errors', async () => {
       // Create circular reference to cause stringify error
       const metadata = {};
       metadata.self = metadata;
 
-      expect(() => {
-        AuditLogger.log('generate', '00147', 'token', 'success', null, '127.0.0.1', metadata);
-      }).not.toThrow();
-
-      done();
+      await expect(
+        AuditLogger.log('generate', '00147', 'token', 'success', null, '127.0.0.1', metadata)
+      ).resolves.toBe(false);
     });
   });
 
@@ -429,21 +385,19 @@ describe('AuditLogger Module', () => {
     });
 
     it('should delete logs older than 90 days', (done) => {
-      db.all('SELECT COUNT(*) as count FROM audit_logs', (err, before) => {
-        const countBefore = before[0].count;
+      AuditLogger.cleanOldLogs();
 
-        AuditLogger.cleanOldLogs();
-
-        // Wait for async cleanup
-        setTimeout(() => {
-          db.all('SELECT COUNT(*) as count FROM audit_logs', (err, after) => {
-            const countAfter = after[0].count;
-            // Count should decrease (old logs deleted)
-            expect(countAfter).toBeLessThanOrEqual(countBefore);
+      // Wait for async cleanup then verify old logs are gone
+      setTimeout(() => {
+        db.all(
+          `SELECT COUNT(*) as count FROM audit_logs WHERE timestamp < datetime('now', '-90 days')`,
+          (err, rows) => {
+            expect(err).toBeNull();
+            expect(rows[0].count).toBe(0);
             done();
-          });
-        }, 50);
-      });
+          }
+        );
+      }, 100);
     });
 
     it('should keep recent logs', (done) => {
@@ -717,7 +671,7 @@ describe('QR Controller Error Paths', () => {
         });
     });
 
-    it('should return 404 when token not found', (done) => {
+    it('should return code 404 when token not found', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -726,8 +680,10 @@ describe('QR Controller Error Paths', () => {
 
       request(app)
         .get('/api/verify?token=SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6')
-        .expect(404)
+        .expect(200)
         .expect((res) => {
+          expect(res.body.success).toBe(false);
+          expect(res.body.code).toBe(404);
           expect(res.body.error).toContain('not found');
         })
         .end(() => {
@@ -736,7 +692,7 @@ describe('QR Controller Error Paths', () => {
         });
     });
 
-    it('should return 410 when token is expired', (done) => {
+    it('should return code 410 when token is expired', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -756,8 +712,9 @@ describe('QR Controller Error Paths', () => {
 
       request(app)
         .get('/api/verify?token=SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6')
-        .expect(410)
+        .expect(200)
         .expect((res) => {
+          expect(res.body.success).toBe(false);
           expect(res.body.error).toContain('expired');
           expect(res.body.code).toBe(410);
         })
@@ -830,7 +787,7 @@ describe('QR Controller Error Paths', () => {
         });
     });
 
-    it('should return 404 when token not found', (done) => {
+    it('should return code 404 when token not found', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -840,14 +797,18 @@ describe('QR Controller Error Paths', () => {
       request(app)
         .post('/api/check-in')
         .send({ token: 'SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6' })
-        .expect(404)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.success).toBe(false);
+          expect(res.body.code).toBe(404);
+        })
         .end(() => {
           db.get = originalGet;
           done();
         });
     });
 
-    it('should return 410 when token is expired', (done) => {
+    it('should return code 410 when token is expired', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -866,8 +827,9 @@ describe('QR Controller Error Paths', () => {
       request(app)
         .post('/api/check-in')
         .send({ token: 'SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6' })
-        .expect(410)
+        .expect(200)
         .expect((res) => {
+          expect(res.body.success).toBe(false);
           expect(res.body.code).toBe(410);
         })
         .end(() => {
@@ -876,7 +838,7 @@ describe('QR Controller Error Paths', () => {
         });
     });
 
-    it('should return 409 when already checked in', (done) => {
+    it('should return code 409 when already checked in', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -895,8 +857,10 @@ describe('QR Controller Error Paths', () => {
       request(app)
         .post('/api/check-in')
         .send({ token: 'SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6' })
-        .expect(409)
+        .expect(200)
         .expect((res) => {
+          expect(res.body.success).toBe(false);
+          expect(res.body.code).toBe(409);
           expect(res.body.error).toContain('already checked in');
         })
         .end(() => {
@@ -989,7 +953,7 @@ describe('QR Controller Error Paths', () => {
         });
     });
 
-    it('should return 404 when token not found', (done) => {
+    it('should return code 404 when token not found', (done) => {
       const originalGet = db.get;
 
       db.get = function(sql, params, callback) {
@@ -998,7 +962,11 @@ describe('QR Controller Error Paths', () => {
 
       request(app)
         .get('/api/check-in-status?token=SIDN_EVENT_2026_M00147_a1b2c3d4e5f6a1b2c3d4e5f6')
-        .expect(404)
+        .expect(200)
+        .expect((res) => {
+          expect(res.body.success).toBe(false);
+          expect(res.body.code).toBe(404);
+        })
         .end(() => {
           db.get = originalGet;
           done();

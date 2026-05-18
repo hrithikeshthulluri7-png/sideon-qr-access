@@ -23,6 +23,15 @@ const initializeDatabase = () => {
   } catch (migrationErr) {
     // Migration module might not be required if not needed
   }
+
+  // Phase 3: Initialize rate limit table
+  try {
+    const { initializeRateLimitTable } = require('./slidingWindowRateLimiter');
+    initializeRateLimitTable();
+  } catch (rateLimitErr) {
+    console.error('[INIT ERROR] Rate limit initialization:', rateLimitErr.message);
+  }
+
   db.serialize(() => {
     // Members table
     db.run(`

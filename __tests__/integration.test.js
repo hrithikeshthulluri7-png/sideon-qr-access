@@ -287,12 +287,14 @@ describe('API Integration Tests', () => {
       expect(response.body.error).toBeDefined();
     });
 
-    it('should return 404 for non-existent token', async () => {
+    it('should return code 404 for non-existent token', async () => {
       const response = await request(app)
         .get('/api/verify')
         .query({ token: 'SIDN_EVENT_2026_M99999_a1b2c3d4e5f6a1b2c3d4e5f6' });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(false);
+      expect(response.body.code).toBe(404);
       expect(response.body.error).toContain('Token not found');
     });
   });
@@ -330,7 +332,7 @@ describe('API Integration Tests', () => {
       expect(response.body.error).toContain('token');
     });
 
-    it('should prevent duplicate check-ins (409 Conflict)', async () => {
+    it('should prevent duplicate check-ins with code 409', async () => {
       // Generate and check in
       const genResponse = await request(app)
         .post('/api/generate-qr')
@@ -353,7 +355,9 @@ describe('API Integration Tests', () => {
         .post('/api/check-in')
         .send({ token });
 
-      expect(response2.status).toBe(409);
+      expect(response2.status).toBe(200);
+      expect(response2.body.success).toBe(false);
+      expect(response2.body.code).toBe(409);
       expect(response2.body.error).toContain('already checked in');
     });
 
@@ -366,12 +370,14 @@ describe('API Integration Tests', () => {
       expect(response.body.error).toBeDefined();
     });
 
-    it('should return 404 for non-existent token', async () => {
+    it('should return code 404 for non-existent token', async () => {
       const response = await request(app)
         .post('/api/check-in')
         .send({ token: 'SIDN_EVENT_2026_M99999_a1b2c3d4e5f6a1b2c3d4e5f6' });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(false);
+      expect(response.body.code).toBe(404);
       expect(response.body.error).toContain('Token not found');
     });
   });
@@ -498,15 +504,17 @@ describe('API Integration Tests', () => {
       expect(response.status).toBe(400);
     });
 
-    it('should return 404 for not found', async () => {
+    it('should return code 404 for not found', async () => {
       const response = await request(app)
         .get('/api/verify')
         .query({ token: 'SIDN_EVENT_2026_M00001_a1b2c3d4e5f6a1b2c3d4e5f6' });
 
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(false);
+      expect(response.body.code).toBe(404);
     });
 
-    it('should return 409 for duplicate check-in', async () => {
+    it('should return code 409 for duplicate check-in', async () => {
       const genResponse = await request(app)
         .post('/api/generate-qr')
         .send({
@@ -523,12 +531,14 @@ describe('API Integration Tests', () => {
 
       expect(response1.status).toBe(200);
 
-      // Duplicate check-in (may get 409 or rate limited with 429)
+      // Duplicate check-in returns HTTP 200 with semantic error code 409.
       const response2 = await request(app)
         .post('/api/check-in')
         .send({ token });
 
-      expect([409, 429]).toContain(response2.status);
+      expect(response2.status).toBe(200);
+      expect(response2.body.success).toBe(false);
+      expect(response2.body.code).toBe(409);
     });
   });
 

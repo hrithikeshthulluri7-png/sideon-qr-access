@@ -1,0 +1,150 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SIDEON QR Access Control API",
+    "version": "1.0.0",
+    "description": "QR-based member check-in system"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3001/api",
+      "description": "Local"
+    }
+  ],
+  "paths": {
+    "/generate-qr": {
+      "post": {
+        "summary": "Generate QR token for member",
+        "tags": [
+          "QR"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "member_id",
+                  "name"
+                ],
+                "properties": {
+                  "member_id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "mobile": {
+                    "type": "string"
+                  },
+                  "agent": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created successfully"
+          }
+        }
+      }
+    },
+    "/verify": {
+      "get": {
+        "summary": "Verify token validity",
+        "tags": [
+          "QR"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token status (success or not found)"
+          }
+        }
+      }
+    },
+    "/check-in": {
+      "post": {
+        "summary": "Check in with token",
+        "tags": [
+          "QR"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Check-in result"
+          }
+        }
+      }
+    },
+    "/check-in-status": {
+      "get": {
+        "summary": "Get check-in status",
+        "tags": [
+          "QR"
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check-in status"
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "tags": [
+          "System"
+        ],
+        "responses": {
+          "200": {
+            "description": "Service healthy"
+          }
+        }
+      }
+    }
+  }
+}
