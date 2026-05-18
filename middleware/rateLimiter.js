@@ -1,5 +1,4 @@
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = rateLimit;
 
 /**
  * Rate limiter for member check-in attempts
@@ -10,7 +9,7 @@ const memberRateLimiter = rateLimit({
   max: 10, // 10 requests per windowMs
   keyGenerator: (req) => {
     // Rate limit by member_id, then by token (body or query), then fall back to IP
-    return req.body?.member_id || req.body?.token || req.query?.token || ipKeyGenerator(req);
+    return req.body?.member_id || req.body?.token || req.query?.token || req.ip || 'unknown';
   },
   skip: (req) => {
     // Skip rate limiting for health checks
@@ -36,7 +35,7 @@ const failureRateLimiter = rateLimit({
   max: 5, // 5 failed attempts per windowMs
   keyGenerator: (req) => {
     // Rate limit by token (query or body) then fall back to IP
-    return req.query?.token || req.body?.token || ipKeyGenerator(req);
+    return req.query?.token || req.body?.token || req.ip || 'unknown';
   },
   skip: (req) => {
     // Skip rate limiting for health checks

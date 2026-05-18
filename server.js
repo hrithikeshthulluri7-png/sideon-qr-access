@@ -208,6 +208,7 @@ app.use((err, req, res, next) => {
 // GRACEFUL SHUTDOWN
 // ===============================================
 let isShuttingDown = false;
+let httpServer = null; // Set when server starts listening
 
 function gracefulShutdown(signal) {
   if (isShuttingDown) return;
@@ -217,8 +218,12 @@ function gracefulShutdown(signal) {
     logger.info(`Graceful shutdown initiated by ${signal}`);
   }
 
-  const server = app.listen(PORT, HOST);
-  
+  const server = httpServer;
+  if (!server) {
+    process.exit(0);
+    return;
+  }
+
   server.close(async () => {
     if (process.env.NODE_ENV !== 'test') {
       logger.info('HTTP server closed');
@@ -258,7 +263,7 @@ if (process.env.NODE_ENV !== 'test') {
 // START SERVER (only if not in test mode)
 // ===============================================
 if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(PORT, HOST, () => {
+  httpServer = app.listen(PORT, HOST, () => {
     logger.info('SIDEON QR Access Backend started', {
       port: PORT,
       host: HOST,
