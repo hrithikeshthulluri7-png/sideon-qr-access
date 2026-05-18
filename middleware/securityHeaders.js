@@ -21,13 +21,14 @@ function getCorsOrigins() {
 function corsMiddleware(req, res, next) {
   const origins = getCorsOrigins();
   const origin = req.get('origin');
+  const allowAll = origins.includes('*');
 
-  if (origins.includes(origin)) {
-    res.set('Access-Control-Allow-Origin', origin);
+  if (allowAll || origins.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', allowAll ? '*' : origin);
     res.set('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
-    
-    if (process.env.CORS_CREDENTIALS === 'true') {
+
+    if (!allowAll && process.env.CORS_CREDENTIALS === 'true') {
       res.set('Access-Control-Allow-Credentials', 'true');
     }
   }
