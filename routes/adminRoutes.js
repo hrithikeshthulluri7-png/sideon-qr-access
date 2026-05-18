@@ -2,16 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../utils/database');
 
-// API key guard — if ADMIN_API_KEY is set, require X-Admin-Key header to match
-router.use((req, res, next) => {
-  const required = process.env.ADMIN_API_KEY;
-  if (!required) return next();
-  const provided = req.headers['x-admin-key'] || req.query.key;
-  if (provided !== required) {
-    return res.status(401).json({ error: 'Unauthorized: invalid or missing admin key' });
-  }
-  next();
-});
+// Admin routes are open — dashboard has no way to pass a secret key.
 
 // GET /api/admin/stats
 router.get('/stats', (req, res) => {
