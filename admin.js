@@ -1,6 +1,6 @@
 /* SIDEON QR Admin Dashboard */
 
-const API = (window.SIDEON_API_BASE || 'http://localhost:3000') + '/api';
+const API = (window.SIDEON_API_BASE || 'https://sideon-qr-backend.onrender.com') + '/api';
 
 let feedData = [];
 let startTime = Date.now();
