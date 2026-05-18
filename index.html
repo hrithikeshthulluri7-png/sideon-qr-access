@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIDEON QR — Admin Dashboard</title>
+  <link rel="stylesheet" href="admin.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-mark">◈</span>
+        <span class="logo-text">SIDEON QR</span>
+        <span class="logo-badge">Admin</span>
+      </div>
+      <div class="header-meta">
+        <span class="env-tag" id="envTag">—</span>
+        <span class="live-dot" id="liveDot"></span>
+        <span class="live-label">Live</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- Stats row -->
+    <section class="stats-row">
+      <div class="stat-card" id="statTotal">
+        <div class="stat-value">—</div>
+        <div class="stat-label">Total Members</div>
+      </div>
+      <div class="stat-card accent-green" id="statChecked">
+        <div class="stat-value">—</div>
+        <div class="stat-label">Checked In</div>
+      </div>
+      <div class="stat-card accent-yellow" id="statPending">
+        <div class="stat-value">—</div>
+        <div class="stat-label">Not Yet In</div>
+      </div>
+      <div class="stat-card accent-blue" id="statTokens">
+        <div class="stat-value">—</div>
+        <div class="stat-label">Active Tokens</div>
+      </div>
+    </section>
+
+    <!-- Two-column layout -->
+    <section class="columns">
+
+      <!-- Left: Generate QR -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Generate QR Token</h2>
+        </div>
+        <form id="generateForm" class="form" autocomplete="off">
+          <div class="field">
+            <label class="field-label">Member ID <span class="required">*</span></label>
+            <input class="field-input" type="text" id="memberId" placeholder="e.g. 10042" required />
+          </div>
+          <div class="field">
+            <label class="field-label">Full Name <span class="required">*</span></label>
+            <input class="field-input" type="text" id="memberName" placeholder="e.g. John Doe" required />
+          </div>
+          <div class="field">
+            <label class="field-label">Email</label>
+            <input class="field-input" type="email" id="memberEmail" placeholder="john@example.com" />
+          </div>
+          <div class="field">
+            <label class="field-label">Mobile</label>
+            <input class="field-input" type="tel" id="memberMobile" placeholder="+1234567890" />
+          </div>
+          <div class="field">
+            <label class="field-label">Agent</label>
+            <input class="field-input" type="text" id="memberAgent" placeholder="Agent name" />
+          </div>
+          <button class="btn btn-primary" type="submit">Generate Token</button>
+        </form>
+        <div id="generateResult" class="result-box hidden"></div>
+      </div>
+
+      <!-- Right: Verify / Check-in -->
+      <div class="panel">
+        <div class="panel-header">
+          <h2 class="panel-title">Verify / Check-In</h2>
+        </div>
+        <div class="form">
+          <div class="field">
+            <label class="field-label">Token</label>
+            <input class="field-input mono" type="text" id="lookupToken" placeholder="SIDN_EVENT_2026_M…" />
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="verifyToken()">Verify</button>
+            <button class="btn btn-primary" onclick="checkIn()">Check-In</button>
+          </div>
+          <div id="lookupResult" class="result-box hidden"></div>
+        </div>
+
+        <!-- QR Image -->
+        <div class="panel-header" style="margin-top:24px">
+          <h2 class="panel-title">QR Image</h2>
+        </div>
+        <div class="form">
+          <div class="field">
+            <label class="field-label">Token</label>
+            <input class="field-input mono" type="text" id="qrToken" placeholder="SIDN_EVENT_2026_M…" />
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" onclick="loadQRImage('svg')">SVG</button>
+            <button class="btn btn-primary" onclick="loadQRImage('png')">PNG</button>
+          </div>
+          <div id="qrDisplay" class="qr-display hidden"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Live feed -->
+    <section class="panel feed-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Live Check-In Feed</h2>
+        <div class="panel-actions">
+          <button class="btn btn-xs" onclick="exportCSV()">Export CSV</button>
+          <span class="refresh-info">Auto-refresh every 3s</span>
+        </div>
+      </div>
+      <div class="search-bar">
+        <input class="field-input" type="text" id="searchInput" placeholder="Search member ID or name…" oninput="renderFeed()" />
+      </div>
+      <div class="table-wrap">
+        <table class="feed-table">
+          <thead>
+            <tr>
+              <th>Member ID</th>
+              <th>Name</th>
+              <th>Token (truncated)</th>
+              <th>Status</th>
+              <th>Check-In Time</th>
+              <th>Expires</th>
+            </tr>
+          </thead>
+          <tbody id="feedBody">
+            <tr><td colspan="6" class="empty-row">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <span>SIDEON QR Access Control</span>
+    <span id="footerUptime"></span>
+  </footer>
+
+  <script src="admin.js"></script>
+</body>
+</html>
