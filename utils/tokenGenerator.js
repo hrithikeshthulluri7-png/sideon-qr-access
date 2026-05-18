@@ -30,7 +30,7 @@ const generateToken = (memberId) => {
  * @returns {boolean}
  */
 const validateTokenFormat = (token) => {
-  const pattern = /^SIDN_EVENT_2026_M[0-9]+_[a-f0-9]{24}$/;
+  const pattern = /^SIDN_EVENT_2026_M[^_]+_[a-f0-9]{24}$/;
   return pattern.test(token);
 };
 
