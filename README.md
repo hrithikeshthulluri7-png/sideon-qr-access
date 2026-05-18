@@ -2,6 +2,24 @@
 
 Express.js backend for SIDEON's QR-based access control system with secure token generation, verification, and check-in tracking.
 
+## Live Deployments
+
+| Service | URL |
+|---------|-----|
+| **Admin Dashboard (Frontend)** | [https://hrithikeshthulluri7-png.github.io/sideon-qr-access/](https://hrithikeshthulluri7-png.github.io/sideon-qr-access/) |
+| **Backend API** | Deploy using the button below |
+
+## Deploy Backend to Render
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/hrithikeshthulluri7-png/sideon-qr-access)
+
+Click the button above to deploy the backend API to Render.com in one click. Render will:
+- Detect `render.yaml` automatically
+- Generate `JWT_SECRET` and `ADMIN_API_KEY` securely
+- Start the Node.js server on the free plan
+
+After deployment, update the `API_BASE` constant in the Admin Dashboard JS to point to your Render service URL.
+
 ## Project Status
 
 | Phase | Description | Status |
