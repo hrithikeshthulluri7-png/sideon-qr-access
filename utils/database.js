@@ -1,7 +1,11 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 
 const DB_PATH = process.env.DATABASE_URL || path.join(__dirname, '../data/sideon.db');
+
+// Ensure the data directory exists (not committed to git)
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 // Create connection
 const db = new sqlite3.Database(DB_PATH, (err) => {
