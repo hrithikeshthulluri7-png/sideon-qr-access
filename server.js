@@ -73,8 +73,10 @@ app.use(securityHeaders);
 
 // Helmet for additional security headers
 app.use(helmet({
-  contentSecurityPolicy: false, // We handle CSP ourselves
-  hsts: { maxAge: 31536000, includeSubDomains: true }
+  contentSecurityPolicy: false,
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+  crossOriginResourcePolicy: false,
+  crossOriginOpenerPolicy: false
 }));
 
 // CORS
