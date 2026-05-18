@@ -148,11 +148,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const text = [
           `Token: ${data.token}`,
-          data.jwt ? `JWT:   ${data.jwt}` : null,
           `Expires: ${fmtTime(data.expiresAt)}`,
         ].filter(Boolean).join('\n');
         setResult('generateResult', text, 'success');
         form.reset();
+        // Auto-fill token fields and load QR image immediately
+        const qrTokenInput = document.getElementById('qrToken');
+        const lookupInput = document.getElementById('lookupToken');
+        if (qrTokenInput) { qrTokenInput.value = data.token; loadQRImage('png'); }
+        if (lookupInput) lookupInput.value = data.token;
         refreshFeed();
         refreshStats();
       } catch (err) {
