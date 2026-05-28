@@ -5,8 +5,8 @@ const { signJWT } = require('../utils/jwtService');
 const { checkRateLimit, recordFailure } = require('../utils/slidingWindowRateLimiter');
 const bcrypt = require('bcrypt');
 
-// Token expiration window in minutes — default 3 days (4320 min) so members stay on the list
-const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '4320', 10);
+// Tokens never expire — set 100 years in the future
+const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '52560000', 10); // 100 years
 
 /**
  * POST /api/generate-qr
