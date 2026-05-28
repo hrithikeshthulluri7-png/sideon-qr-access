@@ -45,10 +45,16 @@ const generateQR = async (req, res) => {
     // Calculate expiration time (current time + EXPIRATION_MINUTES)
     const expiresAt = new Date(Date.now() + EXPIRATION_MINUTES * 60 * 1000).toISOString();
 
-    // Insert or update member (parameterized query)
+    // Upsert member — preserve existing admission_status so re-generation doesn't reset admitted members
     db.run(
-      `INSERT OR REPLACE INTO members (member_id, name, email, mobile, agent, updated_at)
-       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      `INSERT INTO members (member_id, name, email, mobile, agent, updated_at)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+       ON CONFLICT(member_id) DO UPDATE SET
+         name = excluded.name,
+         email = excluded.email,
+         mobile = excluded.mobile,
+         agent = excluded.agent,
+         updated_at = excluded.updated_at`,
       [member_id, name, email || null, mobile || null, agent || null],
       async function(err) {
         if (err) {
@@ -104,13 +110,6 @@ const generateQR = async (req, res) => {
                 code: 500
               });
             }
-
-            // Set admission_status to pending on member record
-            db.run(
-              `UPDATE members SET admission_status = 'pending' WHERE member_id = ?`,
-              [member_id],
-              () => {}
-            );
 
             // Phase 3: Generate JWT token alongside database token
             let jwtToken;
