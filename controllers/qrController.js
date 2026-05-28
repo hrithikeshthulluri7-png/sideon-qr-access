@@ -686,7 +686,7 @@ const generateQRImage = async (req, res) => {
           const imageFormat = (format || 'png').toLowerCase();
 
           // Encode scan URL so phone opens the check-in page when scanned
-          const SCAN_BASE = process.env.SCAN_BASE_URL || 'https://hrithikeshthulluri7-png.github.io/sideon-qr-access/pin.html';
+          const SCAN_BASE = process.env.SCAN_BASE_URL || 'https://sideon-qr-backend.onrender.com/pin.html';
           const qrContent = `${SCAN_BASE}?token=${encodeURIComponent(token)}`;
 
           if (imageFormat === 'svg') {
