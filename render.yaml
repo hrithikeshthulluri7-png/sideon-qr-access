@@ -32,3 +32,5 @@ services:
         generateValue: true
       - key: CORS_ORIGIN
         value: "*"
+      - key: EVENT_PIN
+        value: "369874"

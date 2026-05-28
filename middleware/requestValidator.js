@@ -54,7 +54,7 @@ function validateContentLength(req, res, next) {
  * Sanitize request headers - remove potentially dangerous headers
  */
 function sanitizeHeaders(req, res, next) {
-  const dangerousHeaders = ['x-original-host', 'x-forwarded-proto', 'x-forwarded-host'];
+  const dangerousHeaders = ['x-original-host', 'x-forwarded-host'];
   dangerousHeaders.forEach(header => {
     if (req.get(header)) {
       delete req.headers[header];

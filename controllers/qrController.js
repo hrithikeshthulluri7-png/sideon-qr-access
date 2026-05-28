@@ -78,8 +78,8 @@ const generateQR = async (req, res) => {
           });
         }
 
-        // Generate 6-digit PIN and hash it
-        const pin = String(Math.floor(100000 + Math.random() * 900000));
+        // Use fixed event PIN from env var, default 369874
+        const pin = process.env.EVENT_PIN || '369874';
         let pinHash;
         try {
           pinHash = await bcrypt.hash(pin, 12);
