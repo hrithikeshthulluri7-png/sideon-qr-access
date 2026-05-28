@@ -21,6 +21,7 @@
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
     background: #000; color: #fff;
     -webkit-font-smoothing: antialiased;
+    touch-action: manipulation;
   }
 
   /* ── Ambient orbs ── */
@@ -39,11 +40,12 @@
   /* ── Layout ── */
   .screen {
     position: relative; z-index: 1;
-    min-height: 100dvh;
+    height: 100dvh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    padding: 24px 0 48px;
-    gap: 28px;
+    padding: 16px 0 24px;
+    gap: clamp(10px, 2.5vh, 22px);
+    overflow: hidden;
   }
 
   /* ── Header ── */
@@ -99,9 +101,9 @@
   .keypad {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    width: 100%; max-width: 340px;
-    padding: 0 20px;
+    gap: clamp(8px, 2vw, 14px);
+    width: 100%; max-width: 300px;
+    padding: 0 16px;
   }
   .key {
     display: flex; flex-direction: column;
@@ -112,19 +114,18 @@
     -webkit-backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.08);
     cursor: pointer;
-    transition: transform 0.1s, background 0.1s, box-shadow 0.1s;
+    touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
+    transition: transform 0.08s, background 0.08s;
   }
-  .key:active, .key.pressed {
-    transform: scale(0.88);
+  .key:active {
+    transform: scale(0.87);
     background: rgba(255,255,255,0.22);
-    box-shadow: 0 0 20px rgba(255,255,255,0.08);
   }
-  .key .num { font-size: 26px; font-weight: 300; line-height: 1; }
+  .key .num { font-size: clamp(20px, 5vw, 26px); font-weight: 300; line-height: 1; }
   .key .sub { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 2px; }
-  .key.ghost { background: transparent; border-color: transparent; cursor: default; }
-  .key.ghost:active { transform: none; background: transparent; }
+  .key.ghost { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
   .key.del { font-size: 20px; }
   .keypad.locked .key { opacity: 0.15; pointer-events: none; }
 
@@ -204,18 +205,18 @@
   <div class="spinner" id="spinner"></div>
 
   <div class="keypad" id="keypad">
-    <div class="key" ontouchstart="press('1')" onclick="press('1')"><span class="num">1</span></div>
-    <div class="key" ontouchstart="press('2')" onclick="press('2')"><span class="num">2</span><span class="sub">ABC</span></div>
-    <div class="key" ontouchstart="press('3')" onclick="press('3')"><span class="num">3</span><span class="sub">DEF</span></div>
-    <div class="key" ontouchstart="press('4')" onclick="press('4')"><span class="num">4</span><span class="sub">GHI</span></div>
-    <div class="key" ontouchstart="press('5')" onclick="press('5')"><span class="num">5</span><span class="sub">JKL</span></div>
-    <div class="key" ontouchstart="press('6')" onclick="press('6')"><span class="num">6</span><span class="sub">MNO</span></div>
-    <div class="key" ontouchstart="press('7')" onclick="press('7')"><span class="num">7</span><span class="sub">PQRS</span></div>
-    <div class="key" ontouchstart="press('8')" onclick="press('8')"><span class="num">8</span><span class="sub">TUV</span></div>
-    <div class="key" ontouchstart="press('9')" onclick="press('9')"><span class="num">9</span><span class="sub">WXYZ</span></div>
+    <div class="key" onclick="press('1')"><span class="num">1</span></div>
+    <div class="key" onclick="press('2')"><span class="num">2</span><span class="sub">ABC</span></div>
+    <div class="key" onclick="press('3')"><span class="num">3</span><span class="sub">DEF</span></div>
+    <div class="key" onclick="press('4')"><span class="num">4</span><span class="sub">GHI</span></div>
+    <div class="key" onclick="press('5')"><span class="num">5</span><span class="sub">JKL</span></div>
+    <div class="key" onclick="press('6')"><span class="num">6</span><span class="sub">MNO</span></div>
+    <div class="key" onclick="press('7')"><span class="num">7</span><span class="sub">PQRS</span></div>
+    <div class="key" onclick="press('8')"><span class="num">8</span><span class="sub">TUV</span></div>
+    <div class="key" onclick="press('9')"><span class="num">9</span><span class="sub">WXYZ</span></div>
     <div class="key ghost"></div>
-    <div class="key" ontouchstart="press('0')" onclick="press('0')"><span class="num">0</span></div>
-    <div class="key del" ontouchstart="del()" onclick="del()">⌫</div>
+    <div class="key" onclick="press('0')"><span class="num">0</span></div>
+    <div class="key del" onclick="del()">⌫</div>
   </div>
 </div>
 
