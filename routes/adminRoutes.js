@@ -67,6 +67,35 @@ router.post('/create-admin', async (req, res) => {
   }
 });
 
+// POST /api/admin/change-password — no JWT needed, verified by old password
+router.post('/change-password', async (req, res) => {
+  try {
+    const { email, old_password, new_password } = req.body;
+    if (!email || !old_password || !new_password) {
+      return res.status(400).json({ error: 'email, old_password, and new_password required', code: 400 });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'new_password must be at least 6 characters', code: 400 });
+    }
+
+    db.get('SELECT * FROM admin_users WHERE email = ?', [email], async (err, admin) => {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (!admin) return res.status(401).json({ error: 'Invalid credentials', code: 401 });
+
+      const match = await bcrypt.compare(old_password, admin.password_hash);
+      if (!match) return res.status(401).json({ error: 'Old password is incorrect', code: 401 });
+
+      const newHash = await bcrypt.hash(new_password, 12);
+      db.run('UPDATE admin_users SET password_hash = ? WHERE email = ?', [newHash, email], function(updateErr) {
+        if (updateErr) return res.status(500).json({ error: 'Database error', code: 500 });
+        res.json({ success: true, message: 'Password changed successfully' });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error', code: 500 });
+  }
+});
+
 // All routes below require admin JWT
 router.use(adminAuthMiddleware);
 
