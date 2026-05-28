@@ -71,6 +71,7 @@ const initializeDatabase = () => {
         checked_in_at DATETIME,
         scan_count INTEGER DEFAULT 0,
         pin_hash TEXT,
+        checked_out_at DATETIME,
         FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
       )
     `, (err) => {
@@ -78,8 +79,9 @@ const initializeDatabase = () => {
       else console.log('[DB] Tokens table ready');
     });
 
-    // Add pin_hash to tokens if upgrading existing DB
+    // Add pin_hash and checked_out_at to tokens if upgrading existing DB
     db.run(`ALTER TABLE tokens ADD COLUMN pin_hash TEXT`, () => {});
+    db.run(`ALTER TABLE tokens ADD COLUMN checked_out_at DATETIME`, () => {});
 
     // Admin users table
     db.run(`

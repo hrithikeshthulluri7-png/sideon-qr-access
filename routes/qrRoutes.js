@@ -27,6 +27,9 @@ router.get('/generate-qr-image', qrController.generateQRImage);
 // Verify PIN and check in (Phase 4)
 router.post('/verify-pin', qrController.verifyPin);
 
+// Check out
+router.post('/check-out', qrController.checkOut);
+
 // Poll admission status (Phase 4)
 router.post('/get-admission-status', qrController.getAdmissionStatus);
 

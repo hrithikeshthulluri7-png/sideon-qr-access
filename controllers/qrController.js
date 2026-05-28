@@ -5,8 +5,8 @@ const { signJWT } = require('../utils/jwtService');
 const { checkRateLimit, recordFailure } = require('../utils/slidingWindowRateLimiter');
 const bcrypt = require('bcrypt');
 
-// Token expiration window in minutes (configurable via env var)
-const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '60', 10);
+// Token expiration window in minutes — default 3 days (4320 min) so members stay on the list
+const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '4320', 10);
 
 /**
  * POST /api/generate-qr
@@ -1018,7 +1018,7 @@ const getAdmissionStatus = (req, res) => {
   if (!token) return res.status(400).json({ error: 'token is required', code: 400 });
 
   db.get(
-    `SELECT m.admission_status, m.admitted_at, t.checked_in_at, t.expiresAt
+    `SELECT m.admission_status, m.admitted_at, t.checked_in_at, t.checked_out_at, t.expiresAt
      FROM tokens t JOIN members m ON t.member_id = m.member_id
      WHERE t.token = ?`,
     [token],
@@ -1031,8 +1031,45 @@ const getAdmissionStatus = (req, res) => {
         admission_status: row.admission_status || 'pending',
         admitted_at: row.admitted_at,
         checked_in_at: row.checked_in_at,
+        checked_out_at: row.checked_out_at,
         is_expired: new Date() > new Date(row.expiresAt)
       });
+    }
+  );
+};
+
+/**
+ * POST /api/check-out
+ * Mark a checked-in member as checked out.
+ */
+const checkOut = (req, res) => {
+  const { token } = req.body;
+  const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+
+  if (!token) return res.status(400).json({ error: 'token is required', code: 400 });
+  if (!validateTokenFormat(token)) return res.status(400).json({ error: 'Invalid token format', code: 400 });
+
+  db.get(
+    `SELECT id, member_id, checked_in_at, checked_out_at FROM tokens WHERE token = ?`,
+    [token],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (!row) return res.status(404).json({ error: 'Token not found', code: 404 });
+      if (!row.checked_in_at) return res.status(409).json({ error: 'Not checked in yet', code: 409 });
+      if (row.checked_out_at) return res.status(409).json({ error: 'Already checked out', code: 409 });
+
+      const checkedOutAt = new Date().toISOString();
+      db.run(
+        `UPDATE tokens SET checked_out_at = ? WHERE id = ? AND checked_out_at IS NULL`,
+        [checkedOutAt, row.id],
+        function(updateErr) {
+          if (updateErr || this.changes === 0) {
+            return res.status(409).json({ error: 'Already checked out', code: 409 });
+          }
+          AuditLogger.log('check_out', row.member_id, token, 'success', null, clientIp, { checkedOutAt });
+          res.status(200).json({ success: true, message: 'Checked out successfully', checked_out_at: checkedOutAt });
+        }
+      );
     }
   );
 };
@@ -1045,5 +1082,6 @@ module.exports = {
   checkInStatus,
   generateQRImage,
   verifyPin,
-  getAdmissionStatus
+  getAdmissionStatus,
+  checkOut
 };

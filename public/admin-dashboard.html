@@ -93,6 +93,7 @@
   .badge.admitted { background: rgba(48,209,88,0.15); color: #30d158; }
   .badge.declined { background: rgba(255,69,58,0.15); color: #ff453a; }
   .badge.checked_in { background: rgba(10,132,255,0.15); color: #0a84ff; }
+  .badge.checked_out { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
   .badge.expired { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
 
   .actions { display: flex; gap: 8px; flex-shrink: 0; }
@@ -142,6 +143,7 @@
     <div class="stat-card"><div class="stat-label">Admitted</div><div class="stat-value green" id="s-admitted">—</div></div>
     <div class="stat-card"><div class="stat-label">Declined</div><div class="stat-value red" id="s-declined">—</div></div>
     <div class="stat-card"><div class="stat-label">Checked In</div><div class="stat-value" id="s-checkedin">—</div></div>
+    <div class="stat-card"><div class="stat-label">Checked Out</div><div class="stat-value" id="s-checkedout">—</div></div>
   </div>
 
   <div class="tabs">
@@ -198,6 +200,7 @@
       document.getElementById('s-admitted').textContent = d.admitted ?? '—';
       document.getElementById('s-declined').textContent = d.declined ?? '—';
       document.getElementById('s-checkedin').textContent = d.checkedIn ?? '—';
+      document.getElementById('s-checkedout').textContent = d.checkedOut ?? '—';
     } catch {}
   }
 
@@ -227,22 +230,35 @@
 
   function memberCard(m) {
     const initials = (m.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
-    const status = m.admission_status || 'pending';
-    const showActions = status === 'pending';
+    const admStatus = m.admission_status || 'pending';
+    const ciStatus = m.check_in_status || admStatus;
+    const displayStatus = ciStatus;
     const meta = [m.email, m.mobile, m.agent].filter(Boolean).join(' · ');
+    const checkedInTime = m.checked_in_at ? new Date(m.checked_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : null;
+    const checkedOutTime = m.checked_out_at ? new Date(m.checked_out_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : null;
+    const timeNote = checkedOutTime ? `out ${checkedOutTime}` : checkedInTime ? `in ${checkedInTime}` : '';
+
+    let actions = '';
+    if (admStatus === 'pending') {
+      actions = `<div class="actions">
+        <button class="btn-admit" onclick="admit('${m.member_id}', this)">Admit</button>
+        <button class="btn-decline" onclick="decline('${m.member_id}', this)">Decline</button>
+      </div>`;
+    } else if (ciStatus === 'checked_in') {
+      actions = `<div class="actions">
+        <button class="btn-decline" onclick="checkout('${m.member_id}', this)">Check Out</button>
+      </div>`;
+    }
+
     return `
     <div class="member-card" id="card-${m.member_id}">
       <div class="member-avatar">${initials}</div>
       <div class="member-info">
         <div class="member-name">${esc(m.name)}</div>
-        <div class="member-meta">${esc(meta || m.member_id)}</div>
+        <div class="member-meta">${esc(meta || m.member_id)}${timeNote ? ' · ' + timeNote : ''}</div>
       </div>
-      <span class="badge ${status}">${status.replace('_',' ')}</span>
-      ${showActions ? `
-      <div class="actions">
-        <button class="btn-admit" onclick="admit('${m.member_id}', this)">Admit</button>
-        <button class="btn-decline" onclick="decline('${m.member_id}', this)">Decline</button>
-      </div>` : ''}
+      <span class="badge ${displayStatus}">${displayStatus.replace('_',' ')}</span>
+      ${actions}
     </div>`;
   }
 
@@ -303,6 +319,31 @@
       showToast('Connection error', 'error');
       btn.disabled = false;
       btn.previousElementSibling.disabled = false;
+    }
+  }
+
+  async function checkout(memberId, btn) {
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/checkout`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ member_id: memberId })
+      });
+      const d = await res.json();
+      if (d.success) {
+        showToast('Member checked out', 'success');
+        const m = allMembers.find(x => x.member_id === memberId);
+        if (m) { m.check_in_status = 'checked_out'; m.checked_out_at = d.checked_out_at; }
+        renderMembers();
+        loadStats();
+      } else {
+        showToast(d.error || 'Failed', 'error');
+        btn.disabled = false;
+      }
+    } catch {
+      showToast('Connection error', 'error');
+      btn.disabled = false;
     }
   }
 

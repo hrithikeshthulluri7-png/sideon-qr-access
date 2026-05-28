@@ -75,9 +75,8 @@ router.get('/stats', (req, res) => {
   db.get(`
     SELECT
       (SELECT COUNT(*) FROM members) AS totalMembers,
-      (SELECT COUNT(*) FROM tokens WHERE checked_in_at IS NOT NULL) AS checkedIn,
-      (SELECT COUNT(*) FROM tokens WHERE checked_in_at IS NULL AND expiresAt > datetime('now')) AS pending,
-      (SELECT COUNT(*) FROM tokens WHERE expiresAt > datetime('now')) AS activeTokens,
+      (SELECT COUNT(*) FROM tokens WHERE checked_in_at IS NOT NULL AND checked_out_at IS NULL) AS checkedIn,
+      (SELECT COUNT(*) FROM tokens WHERE checked_out_at IS NOT NULL) AS checkedOut,
       (SELECT COUNT(*) FROM members WHERE admission_status = 'pending') AS pendingAdmission,
       (SELECT COUNT(*) FROM members WHERE admission_status = 'admitted') AS admitted,
       (SELECT COUNT(*) FROM members WHERE admission_status = 'declined') AS declined
@@ -87,34 +86,38 @@ router.get('/stats', (req, res) => {
   });
 });
 
-// GET /api/admin/members
+// GET /api/admin/members — ALL members, permanently listed, no expiry filter
 router.get('/members', (req, res) => {
   db.all(`
     SELECT
       m.member_id, m.name, m.email, m.mobile, m.agent,
       m.admission_status, m.admitted_at, m.admitted_by,
       t.token,
-      CASE WHEN t.checked_in_at IS NOT NULL THEN 'checked_in'
-           WHEN t.expiresAt <= datetime('now') THEN 'expired'
-           ELSE 'pending' END AS check_in_status,
-      t.checked_in_at, t.expiresAt, t.created_at
+      CASE
+        WHEN t.checked_out_at IS NOT NULL THEN 'checked_out'
+        WHEN t.checked_in_at IS NOT NULL THEN 'checked_in'
+        WHEN m.admission_status = 'admitted' THEN 'admitted'
+        WHEN m.admission_status = 'declined' THEN 'declined'
+        ELSE 'pending'
+      END AS check_in_status,
+      t.checked_in_at, t.checked_out_at, t.expiresAt, t.created_at
     FROM members m
     LEFT JOIN tokens t ON m.member_id = t.member_id
-    ORDER BY t.created_at DESC
-    LIMIT 200
+    ORDER BY COALESCE(t.created_at, m.created_at) DESC
+    LIMIT 500
   `, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
 });
 
-// GET /api/admin/pending — members awaiting admission decision
+// GET /api/admin/pending — members awaiting admission decision (no expiry limit)
 router.get('/pending', (req, res) => {
   db.all(`
     SELECT m.member_id, m.name, m.email, m.mobile, m.agent, m.created_at, t.token, t.expiresAt
     FROM members m
     LEFT JOIN tokens t ON m.member_id = t.member_id
-    WHERE m.admission_status = 'pending' AND (t.expiresAt IS NULL OR t.expiresAt > datetime('now'))
+    WHERE m.admission_status = 'pending'
     ORDER BY m.created_at ASC
   `, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -137,6 +140,24 @@ router.post('/admit', (req, res) => {
       if (err) return res.status(500).json({ error: 'Database error', code: 500 });
       if (this.changes === 0) return res.status(404).json({ error: 'Member not found', code: 404 });
       res.json({ success: true, message: `Member ${member_id} admitted`, admitted_at: now });
+    }
+  );
+});
+
+// POST /api/admin/checkout — admin-initiated checkout
+router.post('/checkout', (req, res) => {
+  const { member_id } = req.body;
+  if (!member_id) return res.status(400).json({ error: 'member_id required', code: 400 });
+
+  const checkedOutAt = new Date().toISOString();
+  db.run(
+    `UPDATE tokens SET checked_out_at = ?
+     WHERE member_id = ? AND checked_in_at IS NOT NULL AND checked_out_at IS NULL`,
+    [checkedOutAt, member_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (this.changes === 0) return res.status(409).json({ error: 'Member not checked in or already checked out', code: 409 });
+      res.json({ success: true, message: `Member ${member_id} checked out`, checked_out_at: checkedOutAt });
     }
   );
 });

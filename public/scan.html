@@ -92,6 +92,7 @@
 
   <div class="hint" id="hintText">Show your QR code to the admin at the entrance.</div>
   <button class="btn-pin" id="pinBtn" onclick="goToPin()">Enter PIN →</button>
+  <button class="btn-pin" id="checkoutBtn" onclick="checkOut()" style="display:none;background:#ff9f0a;color:#000;">Check Out</button>
   <div class="declined-msg" id="declinedMsg">Access was declined. Please speak to an organiser.</div>
   <div class="timer" id="timerText"></div>
 </div>
@@ -147,22 +148,33 @@
 
       pill.className = 'status-pill ' + status;
 
+      const checkoutBtn = document.getElementById('checkoutBtn');
+
       if (status === 'pending') {
         statusText.textContent = 'Waiting for admin';
         hintText.textContent = 'Show your QR code to the admin at the entrance.';
         pinBtn.style.display = 'none';
+        checkoutBtn.style.display = 'none';
         declinedMsg.style.display = 'none';
       } else if (status === 'admitted') {
-        if (d.checked_in_at) {
-          statusText.textContent = 'Checked in ✓';
-          pill.className = 'status-pill checked_in';
-          hintText.textContent = 'You are checked in. Welcome!';
+        if (d.checked_out_at) {
+          statusText.textContent = 'Checked out';
+          pill.className = 'status-pill waiting';
+          hintText.textContent = 'You have checked out. Thank you!';
           pinBtn.style.display = 'none';
+          checkoutBtn.style.display = 'none';
           clearInterval(pollInterval);
+        } else if (d.checked_in_at) {
+          statusText.textContent = 'Checked in ✓';
+          pill.className = 'status-pill admitted';
+          hintText.textContent = 'You are checked in. Tap below when leaving.';
+          pinBtn.style.display = 'none';
+          checkoutBtn.style.display = 'block';
         } else {
           statusText.textContent = 'Admitted — enter PIN';
           hintText.textContent = 'You have been admitted. Tap below to complete check-in.';
           pinBtn.style.display = 'block';
+          checkoutBtn.style.display = 'none';
           declinedMsg.style.display = 'none';
         }
       } else if (status === 'declined') {
@@ -170,6 +182,7 @@
         hintText.style.display = 'none';
         declinedMsg.style.display = 'block';
         pinBtn.style.display = 'none';
+        checkoutBtn.style.display = 'none';
         clearInterval(pollInterval);
       }
 
@@ -182,6 +195,33 @@
 
   function goToPin() {
     window.location.href = `pin.html?token=${encodeURIComponent(token)}`;
+  }
+
+  async function checkOut() {
+    const btn = document.getElementById('checkoutBtn');
+    btn.disabled = true;
+    btn.textContent = 'Checking out…';
+    try {
+      const res = await fetch(`${API_BASE}/api/check-out`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const d = await res.json();
+      if (d.success) {
+        document.getElementById('statusText').textContent = 'Checked out';
+        document.getElementById('hintText').textContent = 'You have checked out. Thank you!';
+        btn.style.display = 'none';
+        clearInterval(pollInterval);
+      } else {
+        btn.textContent = 'Check Out';
+        btn.disabled = false;
+        document.getElementById('hintText').textContent = d.error || 'Could not check out. Try again.';
+      }
+    } catch {
+      btn.textContent = 'Check Out';
+      btn.disabled = false;
+    }
   }
 
   // Load member info from token status
