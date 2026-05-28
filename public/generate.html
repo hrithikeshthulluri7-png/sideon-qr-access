@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIDEON — Generate QR</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: #0a0a0a; color: #fff;
+    min-height: 100dvh;
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .card {
+    width: 100%; max-width: 480px;
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 40px;
+  }
+  .logo { font-size: 12px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.35); margin-bottom: 8px; }
+  h1 { font-size: 24px; font-weight: 600; margin-bottom: 28px; letter-spacing: -0.3px; }
+  label { display: block; font-size: 12px; font-weight: 500; letter-spacing: 0.5px; color: rgba(255,255,255,0.45); text-transform: uppercase; margin-bottom: 7px; }
+  input {
+    width: 100%; padding: 13px 15px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px; color: #fff; font-size: 15px;
+    outline: none; transition: border-color 0.2s; margin-bottom: 18px;
+  }
+  input:focus { border-color: rgba(255,255,255,0.3); }
+  input::placeholder { color: rgba(255,255,255,0.2); }
+  button {
+    width: 100%; padding: 14px;
+    background: #fff; color: #000;
+    border: none; border-radius: 10px;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: opacity 0.2s; margin-top: 4px;
+  }
+  button:hover { opacity: 0.88; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .result { display: none; margin-top: 32px; text-align: center; }
+  .result hr { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin-bottom: 28px; }
+  .qr-box {
+    background: #fff; border-radius: 16px;
+    padding: 16px; display: inline-block; margin-bottom: 20px;
+  }
+  .qr-box img { width: 220px; height: 220px; display: block; }
+  .member-label { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .member-id { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 16px; }
+  .pin-box {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: rgba(48,209,88,0.1);
+    border: 1px solid rgba(48,209,88,0.25);
+    border-radius: 12px; padding: 12px 20px; margin-bottom: 20px;
+  }
+  .pin-label { font-size: 12px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.5px; }
+  .pin-value { font-size: 24px; font-weight: 700; color: #30d158; letter-spacing: 4px; }
+  .btn-download {
+    background: rgba(255,255,255,0.08); color: #fff;
+    font-size: 14px; padding: 11px; margin-top: 0;
+  }
+  .btn-download:hover { background: rgba(255,255,255,0.14); opacity: 1; }
+  .err { color: #ff453a; font-size: 14px; text-align: center; margin-top: 12px; min-height: 18px; }
+  .btn-new { background: transparent; color: rgba(255,255,255,0.4); font-size: 14px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">SIDEON</div>
+  <h1>Generate Access QR</h1>
+
+  <div id="formSection">
+    <form onsubmit="generate(event)">
+      <label>Member ID *</label>
+      <input type="text" id="member_id" placeholder="e.g. 00147" required>
+      <label>Full Name *</label>
+      <input type="text" id="name" placeholder="e.g. John Doe" required>
+      <label>Email</label>
+      <input type="email" id="email" placeholder="john@example.com">
+      <label>Mobile</label>
+      <input type="tel" id="mobile" placeholder="+91 98765 43210">
+      <label>Agent / Group</label>
+      <input type="text" id="agent" placeholder="e.g. VIP Table 3">
+      <button type="submit" id="genBtn">Generate QR</button>
+    </form>
+    <div class="err" id="errMsg"></div>
+  </div>
+
+  <div class="result" id="result">
+    <hr>
+    <div class="qr-box">
+      <img id="qrImg" src="" alt="QR Code">
+    </div>
+    <div class="member-label" id="resName"></div>
+    <div class="member-id" id="resMemberId"></div>
+    <div class="pin-box">
+      <div>
+        <div class="pin-label">Entry PIN</div>
+        <div class="pin-value" id="resPin"></div>
+      </div>
+    </div>
+    <button class="btn-download" onclick="downloadQR()">Download QR Image</button>
+    <button class="btn-new" onclick="newMember()">+ Generate Another</button>
+  </div>
+</div>
+
+<script>
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001' : '';
+
+  let lastToken = '';
+
+  async function generate(e) {
+    e.preventDefault();
+    const btn = document.getElementById('genBtn');
+    const err = document.getElementById('errMsg');
+    btn.disabled = true;
+    btn.textContent = 'Generating…';
+    err.textContent = '';
+
+    const body = {
+      member_id: document.getElementById('member_id').value.trim(),
+      name: document.getElementById('name').value.trim(),
+      email: document.getElementById('email').value.trim() || undefined,
+      mobile: document.getElementById('mobile').value.trim() || undefined,
+      agent: document.getElementById('agent').value.trim() || undefined,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/api/generate-qr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        err.textContent = data.error || 'Failed to generate QR.';
+        return;
+      }
+
+      lastToken = data.token;
+      document.getElementById('resName').textContent = body.name;
+      document.getElementById('resMemberId').textContent = 'ID: ' + body.member_id;
+      document.getElementById('resPin').textContent = data.pin;
+      document.getElementById('qrImg').src = `${API_BASE}/api/generate-qr-image?token=${encodeURIComponent(data.token)}&format=png`;
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('formSection').style.display = 'none';
+
+    } catch {
+      err.textContent = 'Connection error. Try again.';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Generate QR';
+    }
+  }
+
+  function downloadQR() {
+    const link = document.createElement('a');
+    link.href = document.getElementById('qrImg').src;
+    link.download = `sideon-qr-${document.getElementById('resMemberId').textContent.replace('ID: ','')}.png`;
+    link.click();
+  }
+
+  function newMember() {
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('formSection').style.display = 'block';
+    document.getElementById('member_id').value = '';
+    document.getElementById('name').value = '';
+    document.getElementById('email').value = '';
+    document.getElementById('mobile').value = '';
+    document.getElementById('agent').value = '';
+    lastToken = '';
+  }
+</script>
+</body>
+</html>
