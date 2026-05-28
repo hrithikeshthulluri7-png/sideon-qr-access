@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SIDEON — Enter PIN</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: #000;
+    color: #fff;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+  }
+  .lock-screen {
+    width: 100%;
+    max-width: 380px;
+    padding: 24px 0 48px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+  .title {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    text-align: center;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    margin-top: -24px;
+  }
+  .dots {
+    display: flex;
+    gap: 20px;
+  }
+  .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.5);
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .dot.filled {
+    background: #fff;
+    border-color: #fff;
+  }
+  .dot.error {
+    background: #ff453a;
+    border-color: #ff453a;
+  }
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    padding: 0 24px;
+  }
+  .key {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    backdrop-filter: blur(8px);
+  }
+  .key:active { background: rgba(255,255,255,0.28); transform: scale(0.95); }
+  .key .num { font-size: 28px; font-weight: 300; line-height: 1; }
+  .key .letters { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1.5px; margin-top: 2px; }
+  .key.empty, .key.action { background: transparent; }
+  .key.delete { font-size: 22px; }
+  .key.action { color: rgba(255,255,255,0.6); font-size: 15px; }
+  .status-msg {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    min-height: 20px;
+    padding: 0 24px;
+  }
+  .status-msg.error { color: #ff453a; }
+  .status-msg.success { color: #30d158; }
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .shake { animation: shake 0.4s ease; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+</style>
+</head>
+<body>
+<div class="lock-screen">
+  <div>
+    <div class="title">Enter PIN</div>
+    <div class="subtitle" id="memberName">SIDEON Access</div>
+  </div>
+
+  <div class="dots" id="dots">
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+    <div class="dot"></div>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+  <div class="spinner" id="spinner"></div>
+
+  <div class="keypad">
+    <div class="key" onclick="press('1')"><span class="num">1</span></div>
+    <div class="key" onclick="press('2')"><span class="num">2</span><span class="letters">ABC</span></div>
+    <div class="key" onclick="press('3')"><span class="num">3</span><span class="letters">DEF</span></div>
+    <div class="key" onclick="press('4')"><span class="num">4</span><span class="letters">GHI</span></div>
+    <div class="key" onclick="press('5')"><span class="num">5</span><span class="letters">JKL</span></div>
+    <div class="key" onclick="press('6')"><span class="num">6</span><span class="letters">MNO</span></div>
+    <div class="key" onclick="press('7')"><span class="num">7</span><span class="letters">PQRS</span></div>
+    <div class="key" onclick="press('8')"><span class="num">8</span><span class="letters">TUV</span></div>
+    <div class="key" onclick="press('9')"><span class="num">9</span><span class="letters">WXYZ</span></div>
+    <div class="key empty"></div>
+    <div class="key" onclick="press('0')"><span class="num">0</span></div>
+    <div class="key delete" onclick="deleteLast()">⌫</div>
+  </div>
+</div>
+
+<script>
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001'
+    : 'https://sideon-qr-access.onrender.com';
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  let pin = '';
+  let submitting = false;
+
+  if (!token) {
+    document.getElementById('statusMsg').textContent = 'Invalid link — no token provided.';
+    document.getElementById('statusMsg').className = 'status-msg error';
+  }
+
+  function updateDots() {
+    const dots = document.querySelectorAll('.dot');
+    dots.forEach((d, i) => {
+      d.className = 'dot' + (i < pin.length ? ' filled' : '');
+    });
+  }
+
+  function press(digit) {
+    if (submitting || pin.length >= 6) return;
+    pin += digit;
+    updateDots();
+    if (pin.length === 6) setTimeout(submit, 120);
+  }
+
+  function deleteLast() {
+    if (submitting) return;
+    pin = pin.slice(0, -1);
+    updateDots();
+  }
+
+  async function submit() {
+    if (submitting || !token) return;
+    submitting = true;
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('statusMsg').textContent = '';
+
+    try {
+      const res = await fetch(`${API_BASE}/api/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, pin })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.querySelectorAll('.dot').forEach(d => d.className = 'dot filled');
+        document.getElementById('statusMsg').textContent = 'Access granted! Welcome.';
+        document.getElementById('statusMsg').className = 'status-msg success';
+        setTimeout(() => {
+          document.getElementById('statusMsg').textContent = '✓ Checked in at ' + new Date(data.checked_in_at).toLocaleTimeString();
+        }, 800);
+      } else {
+        shake();
+        document.getElementById('statusMsg').textContent = data.error || 'Incorrect PIN. Try again.';
+        document.getElementById('statusMsg').className = 'status-msg error';
+        pin = '';
+        updateDots();
+        submitting = false;
+      }
+    } catch (e) {
+      shake();
+      document.getElementById('statusMsg').textContent = 'Connection error. Try again.';
+      document.getElementById('statusMsg').className = 'status-msg error';
+      pin = '';
+      updateDots();
+      submitting = false;
+    } finally {
+      document.getElementById('spinner').style.display = 'none';
+    }
+  }
+
+  function shake() {
+    const el = document.getElementById('dots');
+    el.classList.remove('shake');
+    void el.offsetWidth;
+    el.classList.add('shake');
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key >= '0' && e.key <= '9') press(e.key);
+    if (e.key === 'Backspace') deleteLast();
+  });
+</script>
+</body>
+</html>

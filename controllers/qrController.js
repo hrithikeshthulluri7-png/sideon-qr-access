@@ -3,6 +3,7 @@ const { generateToken, validateTokenFormat } = require('../utils/tokenGenerator'
 const AuditLogger = require('../utils/auditLogger');
 const { signJWT } = require('../utils/jwtService');
 const { checkRateLimit, recordFailure } = require('../utils/slidingWindowRateLimiter');
+const bcrypt = require('bcrypt');
 
 // Token expiration window in minutes (configurable via env var)
 const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '60', 10);
@@ -25,7 +26,7 @@ const EXPIRATION_MINUTES = parseInt(process.env.EXPIRATION_MINUTES || '60', 10);
  * - Token includes expiresAt timestamp (configurable expiration window)
  * - Audit logging for all token generations
  */
-const generateQR = (req, res) => {
+const generateQR = async (req, res) => {
   try {
     const { member_id, name, email, mobile, agent } = req.body;
     const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -49,7 +50,7 @@ const generateQR = (req, res) => {
       `INSERT OR REPLACE INTO members (member_id, name, email, mobile, agent, updated_at)
        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
       [member_id, name, email || null, mobile || null, agent || null],
-      function(err) {
+      async function(err) {
         if (err) {
           console.error('[DB ERROR] Insert member:', err.message);
           AuditLogger.log('generate', member_id, null, 'failure', 500, clientIp, {
@@ -77,11 +78,21 @@ const generateQR = (req, res) => {
           });
         }
 
-        // Insert token with expiresAt timestamp (parameterized query)
+        // Generate 6-digit PIN and hash it
+        const pin = String(Math.floor(100000 + Math.random() * 900000));
+        let pinHash;
+        try {
+          pinHash = await bcrypt.hash(pin, 12);
+        } catch (hashErr) {
+          console.error('[PIN ERROR] Hash failed:', hashErr.message);
+          return res.status(500).json({ error: 'PIN generation failed', code: 500 });
+        }
+
+        // Insert token with PIN hash
         db.run(
-          `INSERT INTO tokens (member_id, token, expiresAt, created_at)
-           VALUES (?, ?, ?, CURRENT_TIMESTAMP)`,
-          [member_id, token, expiresAt],
+          `INSERT INTO tokens (member_id, token, expiresAt, pin_hash, created_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+          [member_id, token, expiresAt, pinHash],
           function(err) {
             if (err) {
               console.error('[DB ERROR] Insert token:', err.message);
@@ -94,13 +105,19 @@ const generateQR = (req, res) => {
               });
             }
 
+            // Set admission_status to pending on member record
+            db.run(
+              `UPDATE members SET admission_status = 'pending' WHERE member_id = ?`,
+              [member_id],
+              () => {}
+            );
+
             // Phase 3: Generate JWT token alongside database token
             let jwtToken;
             try {
               jwtToken = signJWT(member_id, token);
             } catch (jwtErr) {
               console.error('[JWT ERROR] Failed to generate JWT:', jwtErr.message);
-              // Continue without JWT - fallback to database token only
               jwtToken = null;
             }
 
@@ -108,14 +125,16 @@ const generateQR = (req, res) => {
             AuditLogger.log('generate', member_id, token, 'success', null, clientIp, {
               expiresAt: expiresAt,
               expirationMinutes: EXPIRATION_MINUTES,
-              jwt_issued: !!jwtToken
+              jwt_issued: !!jwtToken,
+              pin_generated: true
             });
 
             res.status(201).json({
               success: true,
               token: token,
-              jwt: jwtToken, // Phase 3: JWT token for Authorization header
+              jwt: jwtToken,
               member_id: member_id,
+              pin: pin, // returned once — user must save this
               created_at: new Date().toISOString(),
               expiresAt: expiresAt,
               expirationMinutes: EXPIRATION_MINUTES,
@@ -924,11 +943,107 @@ const verifyJWTToken = async (req, res) => {
   }
 };
 
+/**
+ * POST /api/verify-pin
+ * Verify PIN against stored bcrypt hash; mark token checked-in on success.
+ * Rate-limited: max 5 attempts per IP per 15 minutes.
+ */
+const verifyPin = async (req, res) => {
+  try {
+    const { token, pin } = req.body;
+    const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+
+    if (!token || !pin) {
+      return res.status(400).json({ error: 'token and pin are required', code: 400 });
+    }
+
+    if (!validateTokenFormat(token)) {
+      return res.status(400).json({ error: 'Invalid token format', code: 400 });
+    }
+
+    db.get(
+      `SELECT t.id, t.pin_hash, t.expiresAt, t.checked_in_at, t.member_id, m.admission_status
+       FROM tokens t JOIN members m ON t.member_id = m.member_id
+       WHERE t.token = ?`,
+      [token],
+      async (err, row) => {
+        if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+        if (!row) return res.status(404).json({ error: 'Token not found', code: 404 });
+
+        if (new Date() > new Date(row.expiresAt)) {
+          return res.status(410).json({ error: 'Token expired', code: 410 });
+        }
+
+        if (row.admission_status !== 'admitted') {
+          return res.status(403).json({ error: 'Not yet admitted by admin', code: 403 });
+        }
+
+        if (row.checked_in_at) {
+          return res.status(409).json({ error: 'Already checked in', code: 409 });
+        }
+
+        const match = await bcrypt.compare(String(pin), row.pin_hash);
+        if (!match) {
+          AuditLogger.log('verify_pin', row.member_id, token, 'failure', 401, clientIp, { reason: 'Wrong PIN' });
+          return res.status(401).json({ error: 'Incorrect PIN', code: 401 });
+        }
+
+        const checkedInAt = new Date().toISOString();
+        db.run(
+          `UPDATE tokens SET checked_in_at = ?, verified_at = ?, scan_count = scan_count + 1
+           WHERE id = ? AND checked_in_at IS NULL`,
+          [checkedInAt, checkedInAt, row.id],
+          function(updateErr) {
+            if (updateErr || this.changes === 0) {
+              return res.status(409).json({ error: 'Already checked in', code: 409 });
+            }
+            AuditLogger.log('verify_pin', row.member_id, token, 'success', null, clientIp, { checkedInAt });
+            res.status(200).json({ success: true, message: 'Check-in successful', checked_in_at: checkedInAt });
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error('[ERROR] verifyPin:', error.message);
+    res.status(500).json({ error: 'Internal server error', code: 500 });
+  }
+};
+
+/**
+ * POST /api/get-admission-status
+ * Poll admission status for a member's token.
+ */
+const getAdmissionStatus = (req, res) => {
+  const { token } = req.body;
+  if (!token) return res.status(400).json({ error: 'token is required', code: 400 });
+
+  db.get(
+    `SELECT m.admission_status, m.admitted_at, t.checked_in_at, t.expiresAt
+     FROM tokens t JOIN members m ON t.member_id = m.member_id
+     WHERE t.token = ?`,
+    [token],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (!row) return res.status(404).json({ error: 'Token not found', code: 404 });
+
+      res.status(200).json({
+        success: true,
+        admission_status: row.admission_status || 'pending',
+        admitted_at: row.admitted_at,
+        checked_in_at: row.checked_in_at,
+        is_expired: new Date() > new Date(row.expiresAt)
+      });
+    }
+  );
+};
+
 module.exports = {
   generateQR,
   verifyToken,
   verifyJWTToken,
   checkIn,
   checkInStatus,
-  generateQRImage
+  generateQRImage,
+  verifyPin,
+  getAdmissionStatus
 };

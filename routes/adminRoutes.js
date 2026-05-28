@@ -1,8 +1,74 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const { db } = require('../utils/database');
+const adminAuthMiddleware = require('../middleware/adminAuthMiddleware');
 
-// Admin routes are open — dashboard has no way to pass a secret key.
+const JWT_SECRET = process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET || 'sideon-admin-secret-change-in-production';
+const JWT_EXPIRES = process.env.ADMIN_JWT_EXPIRES || '8h';
+
+// POST /api/admin/login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: 'email and password required', code: 400 });
+    }
+
+    db.get('SELECT * FROM admin_users WHERE email = ?', [email], async (err, admin) => {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (!admin) return res.status(401).json({ error: 'Invalid credentials', code: 401 });
+
+      const match = await bcrypt.compare(password, admin.password_hash);
+      if (!match) return res.status(401).json({ error: 'Invalid credentials', code: 401 });
+
+      const token = jwt.sign(
+        { id: admin.id, email: admin.email, name: admin.name, role: 'admin' },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES }
+      );
+
+      res.json({ success: true, token, admin: { id: admin.id, email: admin.email, name: admin.name } });
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error', code: 500 });
+  }
+});
+
+// POST /api/admin/create-admin (protected by setup key for initial setup)
+router.post('/create-admin', async (req, res) => {
+  try {
+    const { email, password, name, setup_key } = req.body;
+    const SETUP_KEY = process.env.ADMIN_SETUP_KEY || 'sideon-setup-2026';
+    if (setup_key !== SETUP_KEY) {
+      return res.status(403).json({ error: 'Invalid setup key', code: 403 });
+    }
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'email, password, and name required', code: 400 });
+    }
+
+    const hash = await bcrypt.hash(password, 12);
+    db.run(
+      'INSERT INTO admin_users (email, password_hash, name) VALUES (?, ?, ?)',
+      [email, hash, name],
+      function(err) {
+        if (err) {
+          if (err.message.includes('UNIQUE')) {
+            return res.status(409).json({ error: 'Admin with this email already exists', code: 409 });
+          }
+          return res.status(500).json({ error: 'Database error', code: 500 });
+        }
+        res.status(201).json({ success: true, message: 'Admin created', id: this.lastID });
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error', code: 500 });
+  }
+});
+
+// All routes below require admin JWT
+router.use(adminAuthMiddleware);
 
 // GET /api/admin/stats
 router.get('/stats', (req, res) => {
@@ -11,10 +77,13 @@ router.get('/stats', (req, res) => {
       (SELECT COUNT(*) FROM members) AS totalMembers,
       (SELECT COUNT(*) FROM tokens WHERE checked_in_at IS NOT NULL) AS checkedIn,
       (SELECT COUNT(*) FROM tokens WHERE checked_in_at IS NULL AND expiresAt > datetime('now')) AS pending,
-      (SELECT COUNT(*) FROM tokens WHERE expiresAt > datetime('now')) AS activeTokens
+      (SELECT COUNT(*) FROM tokens WHERE expiresAt > datetime('now')) AS activeTokens,
+      (SELECT COUNT(*) FROM members WHERE admission_status = 'pending') AS pendingAdmission,
+      (SELECT COUNT(*) FROM members WHERE admission_status = 'admitted') AS admitted,
+      (SELECT COUNT(*) FROM members WHERE admission_status = 'declined') AS declined
   `, (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    res.json(row || { totalMembers: 0, checkedIn: 0, pending: 0, activeTokens: 0 });
+    res.json(row || {});
   });
 });
 
@@ -22,15 +91,13 @@ router.get('/stats', (req, res) => {
 router.get('/members', (req, res) => {
   db.all(`
     SELECT
-      m.member_id,
-      m.name,
+      m.member_id, m.name, m.email, m.mobile, m.agent,
+      m.admission_status, m.admitted_at, m.admitted_by,
       t.token,
       CASE WHEN t.checked_in_at IS NOT NULL THEN 'checked_in'
            WHEN t.expiresAt <= datetime('now') THEN 'expired'
-           ELSE 'pending' END AS status,
-      t.checked_in_at,
-      t.expiresAt,
-      t.created_at
+           ELSE 'pending' END AS check_in_status,
+      t.checked_in_at, t.expiresAt, t.created_at
     FROM members m
     LEFT JOIN tokens t ON m.member_id = t.member_id
     ORDER BY t.created_at DESC
@@ -39,6 +106,55 @@ router.get('/members', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows || []);
   });
+});
+
+// GET /api/admin/pending — members awaiting admission decision
+router.get('/pending', (req, res) => {
+  db.all(`
+    SELECT m.member_id, m.name, m.email, m.mobile, m.agent, m.created_at, t.token, t.expiresAt
+    FROM members m
+    LEFT JOIN tokens t ON m.member_id = t.member_id
+    WHERE m.admission_status = 'pending' AND (t.expiresAt IS NULL OR t.expiresAt > datetime('now'))
+    ORDER BY m.created_at ASC
+  `, (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows || []);
+  });
+});
+
+// POST /api/admin/admit
+router.post('/admit', (req, res) => {
+  const { member_id } = req.body;
+  if (!member_id) return res.status(400).json({ error: 'member_id required', code: 400 });
+
+  const adminEmail = req.admin?.email || 'admin';
+  const now = new Date().toISOString();
+
+  db.run(
+    `UPDATE members SET admission_status = 'admitted', admitted_at = ?, admitted_by = ? WHERE member_id = ?`,
+    [now, adminEmail, member_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (this.changes === 0) return res.status(404).json({ error: 'Member not found', code: 404 });
+      res.json({ success: true, message: `Member ${member_id} admitted`, admitted_at: now });
+    }
+  );
+});
+
+// POST /api/admin/decline
+router.post('/decline', (req, res) => {
+  const { member_id } = req.body;
+  if (!member_id) return res.status(400).json({ error: 'member_id required', code: 400 });
+
+  db.run(
+    `UPDATE members SET admission_status = 'declined' WHERE member_id = ?`,
+    [member_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+      if (this.changes === 0) return res.status(404).json({ error: 'Member not found', code: 404 });
+      res.json({ success: true, message: `Member ${member_id} declined` });
+    }
+  );
 });
 
 module.exports = router;

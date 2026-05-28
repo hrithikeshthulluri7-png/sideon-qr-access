@@ -54,6 +54,11 @@ const initializeDatabase = () => {
       else console.log('[DB] Members table ready');
     });
 
+    // Add admission columns to members if they don't exist (migration)
+    db.run(`ALTER TABLE members ADD COLUMN admission_status TEXT DEFAULT 'pending'`, () => {});
+    db.run(`ALTER TABLE members ADD COLUMN admitted_at DATETIME`, () => {});
+    db.run(`ALTER TABLE members ADD COLUMN admitted_by TEXT`, () => {});
+
     // Tokens table
     db.run(`
       CREATE TABLE IF NOT EXISTS tokens (
@@ -65,11 +70,29 @@ const initializeDatabase = () => {
         verified_at DATETIME,
         checked_in_at DATETIME,
         scan_count INTEGER DEFAULT 0,
+        pin_hash TEXT,
         FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
       )
     `, (err) => {
       if (err) console.error('[DB ERROR] Tokens table:', err.message);
       else console.log('[DB] Tokens table ready');
+    });
+
+    // Add pin_hash to tokens if upgrading existing DB
+    db.run(`ALTER TABLE tokens ADD COLUMN pin_hash TEXT`, () => {});
+
+    // Admin users table
+    db.run(`
+      CREATE TABLE IF NOT EXISTS admin_users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `, (err) => {
+      if (err) console.error('[DB ERROR] Admin users table:', err.message);
+      else console.log('[DB] Admin users table ready');
     });
 
     // Audit logs table for compliance and debugging

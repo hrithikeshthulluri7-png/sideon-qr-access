@@ -154,6 +154,12 @@ if (process.env.NODE_ENV !== 'test') {
 app.use('/api/check-in', memberRateLimiter);
 app.use('/api/verify', memberRateLimiter);
 app.use('/api/check-in-status', failureRateLimiter);
+app.use('/api/verify-pin', failureRateLimiter);
+
+// ===============================================
+// STATIC FILES (admin + user UI)
+// ===============================================
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ===============================================
 // ROUTES

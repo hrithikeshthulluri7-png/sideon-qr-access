@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIDEON — Admin Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: #0a0a0a;
+    color: #fff;
+    min-height: 100dvh;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    background: #0a0a0a;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.5); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  #adminName { font-size: 14px; color: rgba(255,255,255,0.5); }
+  .btn-logout {
+    font-size: 13px; padding: 8px 16px;
+    background: rgba(255,255,255,0.08);
+    border: none; border-radius: 8px; color: #fff;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.14); }
+
+  .main { padding: 32px; max-width: 1100px; margin: 0 auto; }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+  .stat-card {
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .stat-label { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; text-transform: uppercase; }
+  .stat-value { font-size: 32px; font-weight: 600; margin-top: 6px; }
+  .stat-value.orange { color: #ff9f0a; }
+  .stat-value.green { color: #30d158; }
+  .stat-value.red { color: #ff453a; }
+
+  h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .tab {
+    padding: 8px 18px; border-radius: 20px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: transparent; color: rgba(255,255,255,0.5);
+    transition: all 0.15s;
+  }
+  .tab.active { background: #fff; color: #000; border-color: #fff; }
+
+  .member-list { display: flex; flex-direction: column; gap: 12px; }
+  .member-card {
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px;
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .member-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 600; flex-shrink: 0;
+  }
+  .member-info { flex: 1; min-width: 0; }
+  .member-name { font-size: 15px; font-weight: 500; }
+  .member-meta { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
+    text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+  }
+  .badge.pending { background: rgba(255,159,10,0.15); color: #ff9f0a; }
+  .badge.admitted { background: rgba(48,209,88,0.15); color: #30d158; }
+  .badge.declined { background: rgba(255,69,58,0.15); color: #ff453a; }
+  .badge.checked_in { background: rgba(10,132,255,0.15); color: #0a84ff; }
+  .badge.expired { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
+
+  .actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .btn-admit, .btn-decline {
+    font-size: 13px; font-weight: 600; padding: 8px 16px;
+    border: none; border-radius: 8px; cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .btn-admit { background: #30d158; color: #000; }
+  .btn-decline { background: rgba(255,69,58,0.2); color: #ff453a; }
+  .btn-admit:hover, .btn-decline:hover { opacity: 0.8; }
+  .btn-admit:disabled, .btn-decline:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .empty { text-align: center; padding: 48px 0; color: rgba(255,255,255,0.3); font-size: 15px; }
+  .refresh-btn {
+    font-size: 13px; padding: 8px 16px;
+    background: rgba(255,255,255,0.06); border: none; border-radius: 8px;
+    color: rgba(255,255,255,0.6); cursor: pointer; margin-left: auto; display: block; margin-bottom: 16px;
+    transition: background 0.2s;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.1); }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px; padding: 12px 20px; font-size: 14px;
+    opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 100;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  .toast.success { border-color: rgba(48,209,88,0.4); color: #30d158; }
+  .toast.error { border-color: rgba(255,69,58,0.4); color: #ff453a; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">SIDEON</div>
+  <div class="header-right">
+    <span id="adminName"></span>
+    <button class="btn-logout" onclick="logout()">Sign Out</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card"><div class="stat-label">Total Members</div><div class="stat-value" id="s-total">—</div></div>
+    <div class="stat-card"><div class="stat-label">Awaiting Admission</div><div class="stat-value orange" id="s-pending">—</div></div>
+    <div class="stat-card"><div class="stat-label">Admitted</div><div class="stat-value green" id="s-admitted">—</div></div>
+    <div class="stat-card"><div class="stat-label">Declined</div><div class="stat-value red" id="s-declined">—</div></div>
+    <div class="stat-card"><div class="stat-label">Checked In</div><div class="stat-value" id="s-checkedin">—</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="setTab('pending')">Pending</button>
+    <button class="tab" onclick="setTab('all')">All Members</button>
+  </div>
+
+  <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+
+  <div class="member-list" id="memberList">
+    <div class="empty">Loading…</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001'
+    : 'https://sideon-qr-access.onrender.com';
+
+  const token = localStorage.getItem('adminToken');
+  if (!token) window.location.href = 'admin-login.html';
+  document.getElementById('adminName').textContent = localStorage.getItem('adminName') || 'Admin';
+
+  let currentTab = 'pending';
+  let allMembers = [];
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+  }
+
+  function logout() {
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminName');
+    window.location.href = 'admin-login.html';
+  }
+
+  function setTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.className = 'tab' + (['pending','all'][i] === tab ? ' active' : '');
+    });
+    renderMembers();
+  }
+
+  async function loadStats() {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: authHeaders() });
+      if (res.status === 401) { logout(); return; }
+      const d = await res.json();
+      document.getElementById('s-total').textContent = d.totalMembers ?? '—';
+      document.getElementById('s-pending').textContent = d.pendingAdmission ?? '—';
+      document.getElementById('s-admitted').textContent = d.admitted ?? '—';
+      document.getElementById('s-declined').textContent = d.declined ?? '—';
+      document.getElementById('s-checkedin').textContent = d.checkedIn ?? '—';
+    } catch {}
+  }
+
+  async function loadMembers() {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/members`, { headers: authHeaders() });
+      if (res.status === 401) { logout(); return; }
+      allMembers = await res.json();
+      renderMembers();
+    } catch {
+      document.getElementById('memberList').innerHTML = '<div class="empty">Failed to load members.</div>';
+    }
+  }
+
+  function renderMembers() {
+    const list = document.getElementById('memberList');
+    let data = allMembers;
+    if (currentTab === 'pending') {
+      data = allMembers.filter(m => m.admission_status === 'pending');
+    }
+    if (!data.length) {
+      list.innerHTML = `<div class="empty">${currentTab === 'pending' ? 'No pending members' : 'No members yet'}</div>`;
+      return;
+    }
+    list.innerHTML = data.map(m => memberCard(m)).join('');
+  }
+
+  function memberCard(m) {
+    const initials = (m.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+    const status = m.admission_status || 'pending';
+    const showActions = status === 'pending';
+    const meta = [m.email, m.mobile, m.agent].filter(Boolean).join(' · ');
+    return `
+    <div class="member-card" id="card-${m.member_id}">
+      <div class="member-avatar">${initials}</div>
+      <div class="member-info">
+        <div class="member-name">${esc(m.name)}</div>
+        <div class="member-meta">${esc(meta || m.member_id)}</div>
+      </div>
+      <span class="badge ${status}">${status.replace('_',' ')}</span>
+      ${showActions ? `
+      <div class="actions">
+        <button class="btn-admit" onclick="admit('${m.member_id}', this)">Admit</button>
+        <button class="btn-decline" onclick="decline('${m.member_id}', this)">Decline</button>
+      </div>` : ''}
+    </div>`;
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function admit(memberId, btn) {
+    btn.disabled = true;
+    btn.nextElementSibling.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/admit`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ member_id: memberId })
+      });
+      const d = await res.json();
+      if (d.success) {
+        showToast('Member admitted ✓', 'success');
+        const m = allMembers.find(x => x.member_id === memberId);
+        if (m) m.admission_status = 'admitted';
+        renderMembers();
+        loadStats();
+      } else {
+        showToast(d.error || 'Failed', 'error');
+        btn.disabled = false;
+        btn.nextElementSibling.disabled = false;
+      }
+    } catch {
+      showToast('Connection error', 'error');
+      btn.disabled = false;
+      btn.nextElementSibling.disabled = false;
+    }
+  }
+
+  async function decline(memberId, btn) {
+    btn.disabled = true;
+    btn.previousElementSibling.disabled = true;
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/decline`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ member_id: memberId })
+      });
+      const d = await res.json();
+      if (d.success) {
+        showToast('Member declined', 'error');
+        const m = allMembers.find(x => x.member_id === memberId);
+        if (m) m.admission_status = 'declined';
+        renderMembers();
+        loadStats();
+      } else {
+        showToast(d.error || 'Failed', 'error');
+        btn.disabled = false;
+        btn.previousElementSibling.disabled = false;
+      }
+    } catch {
+      showToast('Connection error', 'error');
+      btn.disabled = false;
+      btn.previousElementSibling.disabled = false;
+    }
+  }
+
+  let toastTimer;
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = 'toast'; }, 3000);
+  }
+
+  async function loadData() {
+    await Promise.all([loadStats(), loadMembers()]);
+  }
+
+  loadData();
+  // Auto-refresh every 10 seconds
+  setInterval(loadData, 10000);
+</script>
+</body>
+</html>

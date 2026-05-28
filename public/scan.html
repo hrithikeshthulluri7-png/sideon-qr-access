@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SIDEON — Your Access QR</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: #000;
+    color: #fff;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+  }
+  .logo { font-size: 12px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.35); margin-bottom: 32px; }
+  .card {
+    width: 100%; max-width: 360px;
+    background: #141414;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 24px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+  .member-name { font-size: 20px; font-weight: 600; text-align: center; }
+  .member-id { font-size: 13px; color: rgba(255,255,255,0.4); }
+  #qrContainer {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    width: 220px; height: 220px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #qrContainer img { width: 188px; height: 188px; }
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    border-radius: 100px;
+    font-size: 14px; font-weight: 500;
+    transition: all 0.3s;
+  }
+  .status-pill.waiting { background: rgba(255,159,10,0.12); color: #ff9f0a; }
+  .status-pill.admitted { background: rgba(48,209,88,0.12); color: #30d158; }
+  .status-pill.declined { background: rgba(255,69,58,0.12); color: #ff453a; }
+  .status-pill.checked_in { background: rgba(10,132,255,0.12); color: #0a84ff; }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .hint { font-size: 13px; color: rgba(255,255,255,0.4); text-align: center; line-height: 1.5; }
+  .btn-pin {
+    width: 100%;
+    padding: 15px;
+    background: #30d158;
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    display: none;
+  }
+  .btn-pin:hover { opacity: 0.88; }
+  .declined-msg { font-size: 15px; color: #ff453a; text-align: center; display: none; }
+  .timer { font-size: 12px; color: rgba(255,255,255,0.25); }
+</style>
+</head>
+<body>
+<div class="logo">SIDEON</div>
+<div class="card">
+  <div>
+    <div class="member-name" id="memberName">Loading…</div>
+    <div class="member-id" id="memberId"></div>
+  </div>
+
+  <div id="qrContainer">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.2)" stroke-width="2">
+      <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+    </svg>
+  </div>
+
+  <div class="status-pill waiting" id="statusPill">
+    <div class="pulse"></div>
+    <span id="statusText">Waiting for admin</span>
+  </div>
+
+  <div class="hint" id="hintText">Show your QR code to the admin at the entrance.</div>
+  <button class="btn-pin" id="pinBtn" onclick="goToPin()">Enter PIN →</button>
+  <div class="declined-msg" id="declinedMsg">Access was declined. Please speak to an organiser.</div>
+  <div class="timer" id="timerText"></div>
+</div>
+
+<script>
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001'
+    : 'https://sideon-qr-access.onrender.com';
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  if (!token) {
+    document.getElementById('memberName').textContent = 'Invalid link';
+    document.getElementById('hintText').textContent = 'No access token found. Please use the link from your QR code.';
+  }
+
+  // Load QR image
+  if (token) {
+    const img = document.createElement('img');
+    img.src = `${API_BASE}/api/generate-qr-image?token=${encodeURIComponent(token)}&format=png`;
+    img.alt = 'Your QR Code';
+    img.onerror = () => {
+      document.getElementById('qrContainer').innerHTML = '<div style="color:#666;font-size:12px;text-align:center">QR unavailable</div>';
+    };
+    document.getElementById('qrContainer').innerHTML = '';
+    document.getElementById('qrContainer').appendChild(img);
+  }
+
+  let pollInterval;
+  let lastStatus = null;
+
+  async function pollStatus() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/get-admission-status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      const d = await res.json();
+      if (!d.success) return;
+
+      const status = d.admission_status;
+      if (status === lastStatus) return;
+      lastStatus = status;
+
+      const pill = document.getElementById('statusPill');
+      const statusText = document.getElementById('statusText');
+      const hintText = document.getElementById('hintText');
+      const pinBtn = document.getElementById('pinBtn');
+      const declinedMsg = document.getElementById('declinedMsg');
+
+      pill.className = 'status-pill ' + status;
+
+      if (status === 'pending') {
+        statusText.textContent = 'Waiting for admin';
+        hintText.textContent = 'Show your QR code to the admin at the entrance.';
+        pinBtn.style.display = 'none';
+        declinedMsg.style.display = 'none';
+      } else if (status === 'admitted') {
+        if (d.checked_in_at) {
+          statusText.textContent = 'Checked in ✓';
+          pill.className = 'status-pill checked_in';
+          hintText.textContent = 'You are checked in. Welcome!';
+          pinBtn.style.display = 'none';
+          clearInterval(pollInterval);
+        } else {
+          statusText.textContent = 'Admitted — enter PIN';
+          hintText.textContent = 'You have been admitted. Tap below to complete check-in.';
+          pinBtn.style.display = 'block';
+          declinedMsg.style.display = 'none';
+        }
+      } else if (status === 'declined') {
+        statusText.textContent = 'Declined';
+        hintText.style.display = 'none';
+        declinedMsg.style.display = 'block';
+        pinBtn.style.display = 'none';
+        clearInterval(pollInterval);
+      }
+
+      if (d.is_expired) {
+        clearInterval(pollInterval);
+        document.getElementById('timerText').textContent = 'This QR code has expired.';
+      }
+    } catch {}
+  }
+
+  function goToPin() {
+    window.location.href = `pin.html?token=${encodeURIComponent(token)}`;
+  }
+
+  // Load member info from token status
+  async function loadMemberInfo() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/check-in-status?token=${encodeURIComponent(token)}`);
+      const d = await res.json();
+      if (d.success) {
+        document.getElementById('memberId').textContent = d.member_id || '';
+        // Expiry countdown
+        startCountdown(d.expiresAt);
+      }
+    } catch {}
+  }
+
+  function startCountdown(expiresAt) {
+    const exp = new Date(expiresAt);
+    const tick = () => {
+      const diff = Math.max(0, exp - Date.now());
+      if (diff === 0) {
+        document.getElementById('timerText').textContent = 'Expired';
+        return;
+      }
+      const m = Math.floor(diff / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      document.getElementById('timerText').textContent = `Expires in ${m}m ${s}s`;
+    };
+    tick();
+    setInterval(tick, 1000);
+  }
+
+  loadMemberInfo();
+  pollStatus();
+  pollInterval = setInterval(pollStatus, 2000);
+</script>
+</body>
+</html>

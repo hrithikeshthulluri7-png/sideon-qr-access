@@ -24,4 +24,10 @@ router.get('/check-in-status', qrController.checkInStatus);
 // Generate QR code image (Phase 3)
 router.get('/generate-qr-image', qrController.generateQRImage);
 
+// Verify PIN and check in (Phase 4)
+router.post('/verify-pin', qrController.verifyPin);
+
+// Poll admission status (Phase 4)
+router.post('/get-admission-status', qrController.getAdmissionStatus);
+
 module.exports = router;
