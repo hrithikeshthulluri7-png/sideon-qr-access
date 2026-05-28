@@ -8,45 +8,33 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
-    background: #0a0a0a;
-    color: #fff;
-    min-height: 100dvh;
+    background: #0a0a0a; color: #fff; min-height: 100dvh;
   }
   header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between;
     padding: 20px 32px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
-    background: #0a0a0a;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    background: #0a0a0a; position: sticky; top: 0; z-index: 10;
   }
   .logo { font-size: 13px; font-weight: 700; letter-spacing: 3px; color: rgba(255,255,255,0.5); }
   .header-right { display: flex; align-items: center; gap: 16px; }
   #adminName { font-size: 14px; color: rgba(255,255,255,0.5); }
   .btn-logout {
     font-size: 13px; padding: 8px 16px;
-    background: rgba(255,255,255,0.08);
-    border: none; border-radius: 8px; color: #fff;
-    cursor: pointer; transition: background 0.2s;
+    background: rgba(255,255,255,0.08); border: none; border-radius: 8px;
+    color: #fff; cursor: pointer; transition: background 0.2s;
   }
   .btn-logout:hover { background: rgba(255,255,255,0.14); }
 
   .main { padding: 32px; max-width: 1100px; margin: 0 auto; }
 
   .stats-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 16px;
-    margin-bottom: 36px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px; margin-bottom: 36px;
   }
   .stat-card {
-    background: #141414;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 14px;
-    padding: 20px;
+    background: #141414; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; padding: 20px;
   }
   .stat-label { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: 0.5px; text-transform: uppercase; }
   .stat-value { font-size: 32px; font-weight: 600; margin-top: 6px; }
@@ -56,25 +44,31 @@
 
   h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 
-  .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 8px; }
   .tab {
-    padding: 8px 18px; border-radius: 20px;
-    font-size: 14px; font-weight: 500; cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: transparent; color: rgba(255,255,255,0.5);
+    padding: 8px 18px; border-radius: 20px; font-size: 14px; font-weight: 500; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12); background: transparent; color: rgba(255,255,255,0.5);
     transition: all 0.15s;
   }
   .tab.active { background: #fff; color: #000; border-color: #fff; }
+  .refresh-btn {
+    font-size: 13px; padding: 8px 16px;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+    color: rgba(255,255,255,0.6); cursor: pointer; transition: background 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .refresh-btn:hover { background: rgba(255,255,255,0.12); }
+  .refresh-btn.spinning .ref-icon { animation: spin 0.7s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .member-list { display: flex; flex-direction: column; gap: 12px; }
   .member-card {
-    background: #141414;
-    border: 1px solid rgba(255,255,255,0.07);
-    border-radius: 14px;
-    padding: 18px 20px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
+    background: #141414; border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 14px; padding: 18px 20px;
+  }
+  .card-top {
+    display: flex; align-items: flex-start; gap: 14px;
   }
   .member-avatar {
     width: 42px; height: 42px; border-radius: 50%;
@@ -84,37 +78,64 @@
   }
   .member-info { flex: 1; min-width: 0; }
   .member-name { font-size: 15px; font-weight: 500; }
-  .member-meta { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .member-id-line { font-size: 12px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+  .member-meta { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 4px; }
+  .token-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 6px;
+  }
+  .token-val {
+    font-family: 'SF Mono', 'Monaco', monospace; font-size: 11px;
+    color: rgba(255,255,255,0.3); background: rgba(255,255,255,0.05);
+    padding: 3px 8px; border-radius: 6px; max-width: 340px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .token-val:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); }
+  .copy-hint { font-size: 11px; color: rgba(255,255,255,0.2); }
+  .card-details {
+    margin-top: 12px; padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 8px 20px;
+  }
+  .detail-item {}
+  .detail-label { font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.5px; }
+  .detail-val { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 14px; flex-wrap: wrap; gap: 8px;
+  }
   .badge {
     font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px;
-    text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0;
+    text-transform: uppercase; letter-spacing: 0.5px;
   }
   .badge.pending { background: rgba(255,159,10,0.15); color: #ff9f0a; }
   .badge.admitted { background: rgba(48,209,88,0.15); color: #30d158; }
   .badge.declined { background: rgba(255,69,58,0.15); color: #ff453a; }
   .badge.checked_in { background: rgba(10,132,255,0.15); color: #0a84ff; }
   .badge.checked_out { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.35); }
-  .badge.expired { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.3); }
-
-  .actions { display: flex; gap: 8px; flex-shrink: 0; }
-  .btn-admit, .btn-decline {
-    font-size: 13px; font-weight: 600; padding: 8px 16px;
-    border: none; border-radius: 8px; cursor: pointer;
-    transition: opacity 0.15s;
+  .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .btn-admit, .btn-decline, .btn-checkout, .btn-unlock {
+    font-size: 13px; font-weight: 600; padding: 7px 14px;
+    border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.15s;
   }
   .btn-admit { background: #30d158; color: #000; }
   .btn-decline { background: rgba(255,69,58,0.2); color: #ff453a; }
-  .btn-admit:hover, .btn-decline:hover { opacity: 0.8; }
-  .btn-admit:disabled, .btn-decline:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn-checkout { background: rgba(10,132,255,0.2); color: #0a84ff; }
+  .btn-unlock { background: rgba(255,159,10,0.2); color: #ff9f0a; font-size: 12px; }
+  .btn-admit:hover, .btn-decline:hover, .btn-checkout:hover, .btn-unlock:hover { opacity: 0.75; }
+  .btn-admit:disabled, .btn-decline:disabled, .btn-checkout:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-delete {
+    width: 30px; height: 30px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(255,69,58,0.1); color: rgba(255,69,58,0.6);
+    font-size: 16px; line-height: 1; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+  }
+  .btn-delete:hover { background: rgba(255,69,58,0.25); color: #ff453a; }
 
   .empty { text-align: center; padding: 48px 0; color: rgba(255,255,255,0.3); font-size: 15px; }
-  .refresh-btn {
-    font-size: 13px; padding: 8px 16px;
-    background: rgba(255,255,255,0.06); border: none; border-radius: 8px;
-    color: rgba(255,255,255,0.6); cursor: pointer; margin-left: auto; display: block; margin-bottom: 16px;
-    transition: background 0.2s;
-  }
-  .refresh-btn:hover { background: rgba(255,255,255,0.1); }
+
   .toast {
     position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
     background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1);
@@ -125,6 +146,31 @@
   .toast.show { opacity: 1; }
   .toast.success { border-color: rgba(48,209,88,0.4); color: #30d158; }
   .toast.error { border-color: rgba(255,69,58,0.4); color: #ff453a; }
+
+  /* Confirm dialog */
+  .confirm-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box {
+    background: #1c1c1e; border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 18px; padding: 28px; max-width: 340px; width: 90%;
+    text-align: center;
+  }
+  .confirm-title { font-size: 17px; font-weight: 600; margin-bottom: 10px; }
+  .confirm-sub { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 24px; line-height: 1.5; }
+  .confirm-actions { display: flex; gap: 12px; justify-content: center; }
+  .confirm-cancel {
+    flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15);
+    background: transparent; color: #fff; font-size: 15px; cursor: pointer;
+  }
+  .confirm-yes {
+    flex: 1; padding: 12px; border-radius: 10px; border: none;
+    background: #ff453a; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .confirm-yes:hover { opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -146,15 +192,30 @@
     <div class="stat-card"><div class="stat-label">Checked Out</div><div class="stat-value" id="s-checkedout">—</div></div>
   </div>
 
-  <div class="tabs">
-    <button class="tab active" onclick="setTab('pending')">Pending</button>
-    <button class="tab" onclick="setTab('all')">All Members</button>
+  <div class="toolbar">
+    <div class="tabs">
+      <button class="tab active" onclick="setTab('pending')">Pending</button>
+      <button class="tab" onclick="setTab('all')">All Members</button>
+    </div>
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshData()">
+      <span class="ref-icon">↻</span> Refresh
+    </button>
   </div>
-
-  <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
 
   <div class="member-list" id="memberList">
     <div class="empty">Loading…</div>
+  </div>
+</div>
+
+<!-- Delete confirmation dialog -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">Remove Member?</div>
+    <div class="confirm-sub" id="confirmSub">This will permanently remove the member and all their access tokens. This cannot be undone.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-yes" id="confirmYes">Remove</button>
+    </div>
   </div>
 </div>
 
@@ -162,8 +223,7 @@
 
 <script>
   const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : '';
+    ? 'http://localhost:3001' : '';
 
   const token = localStorage.getItem('adminToken');
   if (!token) window.location.href = 'admin-login.html';
@@ -171,6 +231,7 @@
 
   let currentTab = 'pending';
   let allMembers = [];
+  let confirmCallback = null;
 
   function authHeaders() {
     return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
@@ -191,36 +252,51 @@
   }
 
   async function loadStats() {
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: authHeaders() });
-      if (res.status === 401) { logout(); return; }
-      const d = await res.json();
-      document.getElementById('s-total').textContent = d.totalMembers ?? '—';
-      document.getElementById('s-pending').textContent = d.pendingAdmission ?? '—';
-      document.getElementById('s-admitted').textContent = d.admitted ?? '—';
-      document.getElementById('s-declined').textContent = d.declined ?? '—';
-      document.getElementById('s-checkedin').textContent = d.checkedIn ?? '—';
-      document.getElementById('s-checkedout').textContent = d.checkedOut ?? '—';
-    } catch {}
+    const res = await fetch(`${API_BASE}/api/admin/stats`, { headers: authHeaders() });
+    if (res.status === 401) { logout(); return; }
+    const d = await res.json();
+    document.getElementById('s-total').textContent = d.totalMembers ?? '—';
+    document.getElementById('s-pending').textContent = d.pendingAdmission ?? '—';
+    document.getElementById('s-admitted').textContent = d.admitted ?? '—';
+    document.getElementById('s-declined').textContent = d.declined ?? '—';
+    document.getElementById('s-checkedin').textContent = d.checkedIn ?? '—';
+    document.getElementById('s-checkedout').textContent = d.checkedOut ?? '—';
   }
 
   async function loadMembers() {
+    const res = await fetch(`${API_BASE}/api/admin/members`, { headers: authHeaders() });
+    if (res.status === 401) { logout(); return; }
+    allMembers = await res.json();
+    renderMembers();
+  }
+
+  async function refreshData() {
+    const btn = document.getElementById('refreshBtn');
+    btn.classList.add('spinning');
+    btn.disabled = true;
     try {
-      const res = await fetch(`${API_BASE}/api/admin/members`, { headers: authHeaders() });
-      if (res.status === 401) { logout(); return; }
-      allMembers = await res.json();
-      renderMembers();
-    } catch {
-      document.getElementById('memberList').innerHTML = '<div class="empty">Failed to load members.</div>';
+      await Promise.all([loadStats(), loadMembers()]);
+    } catch(e) {
+      showToast('Refresh failed', 'error');
+    } finally {
+      btn.classList.remove('spinning');
+      btn.disabled = false;
     }
+  }
+
+  async function loadData() {
+    await Promise.all([loadStats(), loadMembers()]);
+  }
+
+  function fmt(dateStr) {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   function renderMembers() {
     const list = document.getElementById('memberList');
     let data = allMembers;
-    if (currentTab === 'pending') {
-      data = allMembers.filter(m => m.admission_status === 'pending');
-    }
+    if (currentTab === 'pending') data = allMembers.filter(m => m.admission_status === 'pending');
     if (!data.length) {
       list.innerHTML = `<div class="empty">${currentTab === 'pending' ? 'No pending members' : 'No members yet'}</div>`;
       return;
@@ -232,118 +308,162 @@
     const initials = (m.name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
     const admStatus = m.admission_status || 'pending';
     const ciStatus = m.check_in_status || admStatus;
-    const displayStatus = ciStatus;
-    const meta = [m.email, m.mobile, m.agent].filter(Boolean).join(' · ');
-    const checkedInTime = m.checked_in_at ? new Date(m.checked_in_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : null;
-    const checkedOutTime = m.checked_out_at ? new Date(m.checked_out_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : null;
-    const timeNote = checkedOutTime ? `out ${checkedOutTime}` : checkedInTime ? `in ${checkedInTime}` : '';
+
+    const metaParts = [m.email, m.mobile, m.agent].filter(Boolean);
+    const meta = metaParts.join(' · ') || '—';
+
+    const tokenDisplay = m.token || '—';
 
     let actions = '';
     if (admStatus === 'pending') {
-      actions = `<div class="actions">
-        <button class="btn-admit" onclick="admit('${m.member_id}', this)">Admit</button>
-        <button class="btn-decline" onclick="decline('${m.member_id}', this)">Decline</button>
-      </div>`;
+      actions = `
+        <button class="btn-admit" onclick="admit('${esc(m.member_id)}', this)">Admit</button>
+        <button class="btn-decline" onclick="decline('${esc(m.member_id)}', this)">Decline</button>`;
     } else if (ciStatus === 'checked_in') {
-      actions = `<div class="actions">
-        <button class="btn-decline" onclick="checkout('${m.member_id}', this)">Check Out</button>
-      </div>`;
+      actions = `<button class="btn-checkout" onclick="checkout('${esc(m.member_id)}', this)">Check Out</button>`;
     }
 
+    // Add unlock button if status suggests pin lock (we'll detect it via a separate flag if needed)
+    const unlockBtn = admStatus === 'admitted' && !m.checked_in_at
+      ? `<button class="btn-unlock" onclick="unlockPin('${esc(m.member_id)}', this)" title="Reset PIN lockout">Unlock PIN</button>` : '';
+
     return `
-    <div class="member-card" id="card-${m.member_id}">
-      <div class="member-avatar">${initials}</div>
-      <div class="member-info">
-        <div class="member-name">${esc(m.name)}</div>
-        <div class="member-meta">${esc(meta || m.member_id)}${timeNote ? ' · ' + timeNote : ''}</div>
+    <div class="member-card" id="card-${esc(m.member_id)}">
+      <div class="card-top">
+        <div class="member-avatar">${initials}</div>
+        <div class="member-info">
+          <div class="member-name">${esc(m.name)}</div>
+          <div class="member-id-line">ID: ${esc(m.member_id)}</div>
+          <div class="member-meta">${esc(meta)}</div>
+          <div class="token-row">
+            <span class="token-val" onclick="copyToken('${esc(tokenDisplay)}')" title="Click to copy">${esc(tokenDisplay)}</span>
+            <span class="copy-hint">tap to copy</span>
+          </div>
+        </div>
+        <button class="btn-delete" onclick="confirmDelete('${esc(m.member_id)}', '${esc(m.name)}')" title="Remove member">×</button>
       </div>
-      <span class="badge ${displayStatus}">${displayStatus.replace('_',' ')}</span>
-      ${actions}
+      <div class="card-details">
+        <div class="detail-item"><div class="detail-label">Admission</div><div class="detail-val"><span class="badge ${admStatus}">${admStatus.replace('_',' ')}</span></div></div>
+        <div class="detail-item"><div class="detail-label">Check-in Status</div><div class="detail-val"><span class="badge ${ciStatus}">${ciStatus.replace('_',' ')}</span></div></div>
+        <div class="detail-item"><div class="detail-label">Generated</div><div class="detail-val">${fmt(m.created_at)}</div></div>
+        <div class="detail-item"><div class="detail-label">Admitted At</div><div class="detail-val">${m.admitted_at ? fmt(m.admitted_at) : '—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Admitted By</div><div class="detail-val">${esc(m.admitted_by || '—')}</div></div>
+        <div class="detail-item"><div class="detail-label">Checked In</div><div class="detail-val">${fmt(m.checked_in_at)}</div></div>
+        <div class="detail-item"><div class="detail-label">Checked Out</div><div class="detail-val">${fmt(m.checked_out_at)}</div></div>
+      </div>
+      <div class="card-footer">
+        <div class="actions">
+          ${actions}
+          ${unlockBtn}
+        </div>
+      </div>
     </div>`;
   }
 
   function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  function copyToken(tok) {
+    navigator.clipboard.writeText(tok).then(() => showToast('Token copied', 'success')).catch(() => {
+      prompt('Copy token:', tok);
+    });
   }
 
   async function admit(memberId, btn) {
     btn.disabled = true;
-    btn.nextElementSibling.disabled = true;
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/admit`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ member_id: memberId })
-      });
-      const d = await res.json();
-      if (d.success) {
-        showToast('Member admitted ✓', 'success');
-        const m = allMembers.find(x => x.member_id === memberId);
-        if (m) m.admission_status = 'admitted';
-        renderMembers();
-        loadStats();
-      } else {
-        showToast(d.error || 'Failed', 'error');
-        btn.disabled = false;
-        btn.nextElementSibling.disabled = false;
-      }
-    } catch {
-      showToast('Connection error', 'error');
+    if (btn.nextElementSibling) btn.nextElementSibling.disabled = true;
+    const res = await fetch(`${API_BASE}/api/admin/admit`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ member_id: memberId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast('Member admitted', 'success');
+      const m = allMembers.find(x => x.member_id === memberId);
+      if (m) m.admission_status = 'admitted';
+      renderMembers(); loadStats();
+    } else {
+      showToast(d.error || 'Failed', 'error');
       btn.disabled = false;
-      btn.nextElementSibling.disabled = false;
+      if (btn.nextElementSibling) btn.nextElementSibling.disabled = false;
     }
   }
 
   async function decline(memberId, btn) {
     btn.disabled = true;
-    btn.previousElementSibling.disabled = true;
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/decline`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ member_id: memberId })
-      });
-      const d = await res.json();
-      if (d.success) {
-        showToast('Member declined', 'error');
-        const m = allMembers.find(x => x.member_id === memberId);
-        if (m) m.admission_status = 'declined';
-        renderMembers();
-        loadStats();
-      } else {
-        showToast(d.error || 'Failed', 'error');
-        btn.disabled = false;
-        btn.previousElementSibling.disabled = false;
-      }
-    } catch {
-      showToast('Connection error', 'error');
+    if (btn.previousElementSibling) btn.previousElementSibling.disabled = true;
+    const res = await fetch(`${API_BASE}/api/admin/decline`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ member_id: memberId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast('Member declined', 'error');
+      const m = allMembers.find(x => x.member_id === memberId);
+      if (m) m.admission_status = 'declined';
+      renderMembers(); loadStats();
+    } else {
+      showToast(d.error || 'Failed', 'error');
       btn.disabled = false;
-      btn.previousElementSibling.disabled = false;
+      if (btn.previousElementSibling) btn.previousElementSibling.disabled = false;
     }
   }
 
   async function checkout(memberId, btn) {
     btn.disabled = true;
-    try {
-      const res = await fetch(`${API_BASE}/api/admin/checkout`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ member_id: memberId })
-      });
-      const d = await res.json();
-      if (d.success) {
-        showToast('Member checked out', 'success');
-        const m = allMembers.find(x => x.member_id === memberId);
-        if (m) { m.check_in_status = 'checked_out'; m.checked_out_at = d.checked_out_at; }
-        renderMembers();
-        loadStats();
-      } else {
-        showToast(d.error || 'Failed', 'error');
-        btn.disabled = false;
-      }
-    } catch {
-      showToast('Connection error', 'error');
+    const res = await fetch(`${API_BASE}/api/admin/checkout`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ member_id: memberId })
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast('Member checked out', 'success');
+      const m = allMembers.find(x => x.member_id === memberId);
+      if (m) { m.check_in_status = 'checked_out'; m.checked_out_at = d.checked_out_at; }
+      renderMembers(); loadStats();
+    } else {
+      showToast(d.error || 'Failed', 'error');
       btn.disabled = false;
+    }
+  }
+
+  async function unlockPin(memberId, btn) {
+    btn.disabled = true;
+    const res = await fetch(`${API_BASE}/api/admin/reset-pin-lock`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ member_id: memberId })
+    });
+    const d = await res.json();
+    if (d.success) showToast('PIN unlocked', 'success');
+    else showToast(d.error || 'Failed', 'error');
+    btn.disabled = false;
+  }
+
+  // Delete member with confirmation
+  function confirmDelete(memberId, name) {
+    document.getElementById('confirmSub').textContent =
+      `Remove "${name}" (ID: ${memberId})? This deletes all their access tokens permanently.`;
+    confirmCallback = () => deleteMember(memberId);
+    document.getElementById('confirmYes').onclick = () => {
+      closeConfirm();
+      confirmCallback();
+    };
+    document.getElementById('confirmOverlay').classList.add('open');
+  }
+
+  function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('open');
+    confirmCallback = null;
+  }
+
+  async function deleteMember(memberId) {
+    const res = await fetch(`${API_BASE}/api/admin/members/${encodeURIComponent(memberId)}`, {
+      method: 'DELETE', headers: authHeaders()
+    });
+    const d = await res.json();
+    if (d.success) {
+      showToast('Member removed', 'success');
+      allMembers = allMembers.filter(m => m.member_id !== memberId);
+      renderMembers(); loadStats();
+    } else {
+      showToast(d.error || 'Failed to remove', 'error');
     }
   }
 
@@ -356,12 +476,12 @@
     toastTimer = setTimeout(() => { t.className = 'toast'; }, 3000);
   }
 
-  async function loadData() {
-    await Promise.all([loadStats(), loadMembers()]);
-  }
+  // Close confirm on overlay click
+  document.getElementById('confirmOverlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('confirmOverlay')) closeConfirm();
+  });
 
   loadData();
-  // Auto-refresh every 10 seconds
   setInterval(loadData, 10000);
 </script>
 </body>

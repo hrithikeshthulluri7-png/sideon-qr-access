@@ -961,7 +961,8 @@ const verifyPin = async (req, res) => {
     }
 
     db.get(
-      `SELECT t.id, t.pin_hash, t.expiresAt, t.checked_in_at, t.member_id, m.admission_status
+      `SELECT t.id, t.pin_hash, t.expiresAt, t.checked_in_at, t.member_id,
+              COALESCE(t.pin_failed_attempts, 0) AS pin_failed_attempts, m.admission_status
        FROM tokens t JOIN members m ON t.member_id = m.member_id
        WHERE t.token = ?`,
       [token],
@@ -981,15 +982,29 @@ const verifyPin = async (req, res) => {
           return res.status(409).json({ error: 'Already checked in', code: 409 });
         }
 
+        // Lock after 3 failed attempts
+        if (row.pin_failed_attempts >= 3) {
+          AuditLogger.log('verify_pin', row.member_id, token, 'failure', 423, clientIp, { reason: 'Locked — too many failed attempts' });
+          return res.status(423).json({ error: 'Too many failed attempts. This device is locked.', code: 423, locked: true });
+        }
+
         const match = await bcrypt.compare(String(pin), row.pin_hash);
         if (!match) {
-          AuditLogger.log('verify_pin', row.member_id, token, 'failure', 401, clientIp, { reason: 'Wrong PIN' });
-          return res.status(401).json({ error: 'Incorrect PIN', code: 401 });
+          const newCount = row.pin_failed_attempts + 1;
+          db.run(`UPDATE tokens SET pin_failed_attempts = ? WHERE id = ?`, [newCount, row.id]);
+          const attemptsLeft = 3 - newCount;
+          AuditLogger.log('verify_pin', row.member_id, token, 'failure', 401, clientIp, { reason: 'Wrong PIN', attemptsLeft });
+          return res.status(401).json({
+            error: attemptsLeft <= 0 ? 'Too many failed attempts. This device is locked.' : 'Incorrect PIN',
+            code: attemptsLeft <= 0 ? 423 : 401,
+            attempts_left: attemptsLeft,
+            locked: attemptsLeft <= 0
+          });
         }
 
         const checkedInAt = new Date().toISOString();
         db.run(
-          `UPDATE tokens SET checked_in_at = ?, verified_at = ?, scan_count = scan_count + 1
+          `UPDATE tokens SET checked_in_at = ?, verified_at = ?, scan_count = scan_count + 1, pin_failed_attempts = 0
            WHERE id = ? AND checked_in_at IS NULL`,
           [checkedInAt, checkedInAt, row.id],
           function(updateErr) {

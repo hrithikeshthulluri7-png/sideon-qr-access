@@ -8,98 +8,54 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
-    background: #000;
-    color: #fff;
+    background: #000; color: #fff;
     min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     user-select: none;
   }
   .lock-screen {
-    width: 100%;
-    max-width: 380px;
+    width: 100%; max-width: 380px;
     padding: 24px 0 48px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 32px;
+    display: flex; flex-direction: column; align-items: center; gap: 32px;
   }
-  .title {
-    font-size: 28px;
-    font-weight: 600;
-    letter-spacing: -0.5px;
-    text-align: center;
-  }
-  .subtitle {
-    font-size: 15px;
-    color: rgba(255,255,255,0.6);
-    text-align: center;
-    margin-top: -24px;
-  }
-  .dots {
-    display: flex;
-    gap: 20px;
-  }
+  .title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center; }
+  .subtitle { font-size: 15px; color: rgba(255,255,255,0.6); text-align: center; margin-top: -24px; }
+  .dots { display: flex; gap: 20px; }
   .dot {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
+    width: 14px; height: 14px; border-radius: 50%;
     border: 1.5px solid rgba(255,255,255,0.5);
     transition: background 0.15s, border-color 0.15s;
   }
-  .dot.filled {
-    background: #fff;
-    border-color: #fff;
-  }
-  .dot.error {
-    background: #ff453a;
-    border-color: #ff453a;
-  }
+  .dot.filled { background: #fff; border-color: #fff; }
+  .dot.error { background: #ff453a; border-color: #ff453a; }
   .keypad {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    width: 100%;
-    padding: 0 24px;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; width: 100%; padding: 0 24px;
   }
   .key {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 50%;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    width: 100%; aspect-ratio: 1; border-radius: 50%;
     background: rgba(255,255,255,0.12);
-    cursor: pointer;
-    transition: background 0.1s, transform 0.1s;
-    -webkit-tap-highlight-color: transparent;
-    backdrop-filter: blur(8px);
+    cursor: pointer; transition: background 0.1s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent; backdrop-filter: blur(8px);
   }
   .key:active { background: rgba(255,255,255,0.28); transform: scale(0.95); }
   .key .num { font-size: 28px; font-weight: 300; line-height: 1; }
   .key .letters { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1.5px; margin-top: 2px; }
   .key.empty, .key.action { background: transparent; }
   .key.delete { font-size: 22px; }
-  .key.action { color: rgba(255,255,255,0.6); font-size: 15px; }
+  .keypad.locked .key { opacity: 0.2; pointer-events: none; cursor: not-allowed; }
   .status-msg {
-    font-size: 14px;
-    color: rgba(255,255,255,0.5);
-    text-align: center;
-    min-height: 20px;
-    padding: 0 24px;
+    font-size: 14px; color: rgba(255,255,255,0.5); text-align: center;
+    min-height: 20px; padding: 0 24px;
   }
   .status-msg.error { color: #ff453a; }
   .status-msg.success { color: #30d158; }
+  .status-msg.locked { color: #ff9f0a; font-size: 15px; font-weight: 500; }
   .spinner {
     width: 20px; height: 20px;
-    border: 2px solid rgba(255,255,255,0.2);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    display: none;
+    border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   .shake { animation: shake 0.4s ease; }
@@ -110,14 +66,28 @@
     60% { transform: translateX(-8px); }
     80% { transform: translateX(8px); }
   }
+  .lock-icon {
+    font-size: 48px; display: none; text-align: center;
+  }
+  .attempts-indicator {
+    display: flex; gap: 6px; justify-content: center;
+  }
+  .attempt-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    transition: background 0.2s;
+  }
+  .attempt-dot.used { background: #ff453a; }
 </style>
 </head>
 <body>
 <div class="lock-screen">
   <div>
-    <div class="title">Enter PIN</div>
+    <div class="title" id="titleText">Enter PIN</div>
     <div class="subtitle" id="memberName">SIDEON Access</div>
   </div>
+
+  <div class="lock-icon" id="lockIcon">🔒</div>
 
   <div class="dots" id="dots">
     <div class="dot"></div>
@@ -128,10 +98,17 @@
     <div class="dot"></div>
   </div>
 
+  <!-- 3 attempt indicators -->
+  <div class="attempts-indicator" id="attemptsRow">
+    <div class="attempt-dot" id="a1"></div>
+    <div class="attempt-dot" id="a2"></div>
+    <div class="attempt-dot" id="a3"></div>
+  </div>
+
   <div class="status-msg" id="statusMsg"></div>
   <div class="spinner" id="spinner"></div>
 
-  <div class="keypad">
+  <div class="keypad" id="keypad">
     <div class="key" onclick="press('1')"><span class="num">1</span></div>
     <div class="key" onclick="press('2')"><span class="num">2</span><span class="letters">ABC</span></div>
     <div class="key" onclick="press('3')"><span class="num">3</span><span class="letters">DEF</span></div>
@@ -149,24 +126,47 @@
 
 <script>
   const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:3001'
-    : '';
+    ? 'http://localhost:3001' : '';
 
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
+  const qrToken = params.get('token');
   let pin = '';
   let submitting = false;
+  let failedAttempts = 0;
+  const MAX_ATTEMPTS = 3;
 
-  if (!token) {
-    document.getElementById('statusMsg').textContent = 'Invalid link — no token provided.';
+  if (!qrToken) {
+    setError('Invalid link — no token provided.');
+  }
+
+  function setError(msg) {
+    document.getElementById('statusMsg').textContent = msg;
     document.getElementById('statusMsg').className = 'status-msg error';
   }
 
   function updateDots() {
-    const dots = document.querySelectorAll('.dot');
-    dots.forEach((d, i) => {
+    document.querySelectorAll('.dot').forEach((d, i) => {
       d.className = 'dot' + (i < pin.length ? ' filled' : '');
     });
+  }
+
+  function updateAttemptDots() {
+    for (let i = 1; i <= 3; i++) {
+      document.getElementById('a' + i).className =
+        'attempt-dot' + (i <= failedAttempts ? ' used' : '');
+    }
+  }
+
+  function lockKeypad(message) {
+    document.getElementById('keypad').classList.add('locked');
+    document.getElementById('lockIcon').style.display = 'block';
+    document.getElementById('dots').style.display = 'none';
+    document.getElementById('attemptsRow').style.display = 'none';
+    document.getElementById('titleText').textContent = 'Device Locked';
+    const msg = document.getElementById('statusMsg');
+    msg.textContent = message || 'Too many failed attempts. Contact the event team.';
+    msg.className = 'status-msg locked';
+    submitting = true;
   }
 
   function press(digit) {
@@ -183,7 +183,7 @@
   }
 
   async function submit() {
-    if (submitting || !token) return;
+    if (submitting || !qrToken) return;
     submitting = true;
     document.getElementById('spinner').style.display = 'block';
     document.getElementById('statusMsg').textContent = '';
@@ -192,7 +192,7 @@
       const res = await fetch(`${API_BASE}/api/verify-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, pin })
+        body: JSON.stringify({ token: qrToken, pin })
       });
       const data = await res.json();
 
@@ -200,24 +200,43 @@
         document.querySelectorAll('.dot').forEach(d => d.className = 'dot filled');
         document.getElementById('statusMsg').textContent = 'Access granted! Welcome.';
         document.getElementById('statusMsg').className = 'status-msg success';
+        document.getElementById('attemptsRow').style.display = 'none';
         setTimeout(() => {
-          document.getElementById('statusMsg').textContent = '✓ Checked in at ' + new Date(data.checked_in_at).toLocaleTimeString();
+          document.getElementById('statusMsg').textContent =
+            '✓ Checked in at ' + new Date(data.checked_in_at).toLocaleTimeString();
         }, 800);
-      } else {
+        // keep submitting = true so keypad stays disabled after success
+      } else if (data.locked || res.status === 423 || (data.attempts_left !== undefined && data.attempts_left <= 0)) {
+        // Locked — too many attempts
+        failedAttempts = MAX_ATTEMPTS;
+        updateAttemptDots();
         shake();
-        document.getElementById('statusMsg').textContent = data.error || 'Incorrect PIN. Try again.';
-        document.getElementById('statusMsg').className = 'status-msg error';
-        pin = '';
-        updateDots();
-        submitting = false;
+        lockKeypad('Too many failed attempts. Contact the event team.');
+      } else if (res.status === 403) {
+        // Not admitted
+        setError('Not yet admitted. Please wait for approval.');
+        pin = ''; updateDots(); submitting = false;
+      } else if (res.status === 409) {
+        document.getElementById('statusMsg').textContent = 'Already checked in.';
+        document.getElementById('statusMsg').className = 'status-msg success';
+        submitting = true;
+      } else {
+        // Wrong PIN
+        failedAttempts++;
+        updateAttemptDots();
+        shake();
+        const left = MAX_ATTEMPTS - failedAttempts;
+        if (left <= 0) {
+          lockKeypad('Too many failed attempts. Contact the event team.');
+        } else {
+          setError(`Incorrect PIN. ${left} attempt${left === 1 ? '' : 's'} remaining.`);
+          pin = ''; updateDots(); submitting = false;
+        }
       }
-    } catch (e) {
+    } catch {
       shake();
-      document.getElementById('statusMsg').textContent = 'Connection error. Try again.';
-      document.getElementById('statusMsg').className = 'status-msg error';
-      pin = '';
-      updateDots();
-      submitting = false;
+      setError('Connection error. Try again.');
+      pin = ''; updateDots(); submitting = false;
     } finally {
       document.getElementById('spinner').style.display = 'none';
     }

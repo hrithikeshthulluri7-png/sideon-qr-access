@@ -82,6 +82,7 @@ const initializeDatabase = () => {
     // Add pin_hash and checked_out_at to tokens if upgrading existing DB
     db.run(`ALTER TABLE tokens ADD COLUMN pin_hash TEXT`, () => {});
     db.run(`ALTER TABLE tokens ADD COLUMN checked_out_at DATETIME`, () => {});
+    db.run(`ALTER TABLE tokens ADD COLUMN pin_failed_attempts INTEGER DEFAULT 0`, () => {});
 
     // Admin users table
     db.run(`

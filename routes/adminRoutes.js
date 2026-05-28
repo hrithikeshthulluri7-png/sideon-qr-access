@@ -191,6 +191,29 @@ router.post('/checkout', (req, res) => {
   );
 });
 
+// DELETE /api/admin/members/:member_id — permanently remove a member and all their tokens
+router.delete('/members/:member_id', (req, res) => {
+  const { member_id } = req.params;
+  if (!member_id) return res.status(400).json({ error: 'member_id required', code: 400 });
+
+  db.run('DELETE FROM members WHERE member_id = ?', [member_id], function(err) {
+    if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+    if (this.changes === 0) return res.status(404).json({ error: 'Member not found', code: 404 });
+    res.json({ success: true, message: `Member ${member_id} removed` });
+  });
+});
+
+// POST /api/admin/reset-pin-lock — unlock a PIN-locked token
+router.post('/reset-pin-lock', (req, res) => {
+  const { member_id } = req.body;
+  if (!member_id) return res.status(400).json({ error: 'member_id required', code: 400 });
+
+  db.run('UPDATE tokens SET pin_failed_attempts = 0 WHERE member_id = ?', [member_id], function(err) {
+    if (err) return res.status(500).json({ error: 'Database error', code: 500 });
+    res.json({ success: true, message: `PIN lock reset for ${member_id}` });
+  });
+});
+
 // POST /api/admin/decline
 router.post('/decline', (req, res) => {
   const { member_id } = req.body;
