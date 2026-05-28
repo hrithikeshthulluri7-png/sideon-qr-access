@@ -90,8 +90,7 @@
     <span id="statusText">Waiting for admin</span>
   </div>
 
-  <div class="hint" id="hintText">Show your QR code to the admin at the entrance.</div>
-  <button class="btn-pin" id="pinBtn" onclick="goToPin()">Enter PIN →</button>
+  <div class="hint" id="hintText">Show your QR code to the staff at the entrance.</div>
   <button class="btn-pin" id="checkoutBtn" onclick="checkOut()" style="display:none;background:#ff9f0a;color:#000;">Check Out</button>
   <div class="declined-msg" id="declinedMsg">Access was declined. Please speak to an organiser.</div>
 </div>
@@ -142,17 +141,14 @@
       const pill = document.getElementById('statusPill');
       const statusText = document.getElementById('statusText');
       const hintText = document.getElementById('hintText');
-      const pinBtn = document.getElementById('pinBtn');
       const declinedMsg = document.getElementById('declinedMsg');
+      const checkoutBtn = document.getElementById('checkoutBtn');
 
       pill.className = 'status-pill ' + status;
 
-      const checkoutBtn = document.getElementById('checkoutBtn');
-
       if (status === 'pending') {
-        statusText.textContent = 'Waiting for admin';
-        hintText.textContent = 'Show your QR code to the admin at the entrance.';
-        pinBtn.style.display = 'none';
+        statusText.textContent = 'Waiting for admission';
+        hintText.textContent = 'Show this QR to the staff at the entrance.';
         checkoutBtn.style.display = 'none';
         declinedMsg.style.display = 'none';
       } else if (status === 'admitted') {
@@ -160,19 +156,16 @@
           statusText.textContent = 'Checked out';
           pill.className = 'status-pill waiting';
           hintText.textContent = 'You have checked out. Thank you!';
-          pinBtn.style.display = 'none';
           checkoutBtn.style.display = 'none';
           clearInterval(pollInterval);
         } else if (d.checked_in_at) {
           statusText.textContent = 'Checked in ✓';
-          pill.className = 'status-pill admitted';
+          pill.className = 'status-pill checked_in';
           hintText.textContent = 'You are checked in. Tap below when leaving.';
-          pinBtn.style.display = 'none';
           checkoutBtn.style.display = 'block';
         } else {
-          statusText.textContent = 'Admitted — enter PIN';
-          hintText.textContent = 'You have been admitted. Tap below to complete check-in.';
-          pinBtn.style.display = 'block';
+          statusText.textContent = 'Admitted — show QR to staff';
+          hintText.textContent = 'You have been admitted. Show this QR to the staff to complete check-in.';
           checkoutBtn.style.display = 'none';
           declinedMsg.style.display = 'none';
         }
@@ -180,7 +173,6 @@
         statusText.textContent = 'Declined';
         hintText.style.display = 'none';
         declinedMsg.style.display = 'block';
-        pinBtn.style.display = 'none';
         checkoutBtn.style.display = 'none';
         clearInterval(pollInterval);
       }
@@ -190,10 +182,6 @@
         document.getElementById('timerText').textContent = 'This QR code has expired.';
       }
     } catch {}
-  }
-
-  function goToPin() {
-    window.location.href = `pin.html?token=${encodeURIComponent(token)}`;
   }
 
   async function checkOut() {

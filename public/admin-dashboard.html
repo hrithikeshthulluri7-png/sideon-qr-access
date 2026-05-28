@@ -442,8 +442,9 @@
       `Remove "${name}" (ID: ${memberId})? This deletes all their access tokens permanently.`;
     confirmCallback = () => deleteMember(memberId);
     document.getElementById('confirmYes').onclick = () => {
+      const cb = confirmCallback;
       closeConfirm();
-      confirmCallback();
+      if (cb) cb();
     };
     document.getElementById('confirmOverlay').classList.add('open');
   }
