@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SIDEON — Member</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #30d158;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --blue: #0a84ff;
+  }
+
+  html, body {
+    min-height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+    background: #050505; color: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Ambient orbs ── */
+  .orb { position: fixed; border-radius: 50%; filter: blur(90px); pointer-events: none; z-index: 0; }
+  .orb-1 { width: 350px; height: 350px; background: rgba(48,209,88,0.09); top: -120px; left: -100px; animation: float1 9s ease-in-out infinite; }
+  .orb-2 { width: 280px; height: 280px; background: rgba(10,132,255,0.08); bottom: -80px; right: -80px; animation: float2 11s ease-in-out infinite; }
+  @keyframes float1 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-24px)} }
+  @keyframes float2 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(20px)} }
+
+  /* ── Page layout ── */
+  .page {
+    position: relative; z-index: 1;
+    min-height: 100dvh;
+    display: flex; flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 48px;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    width: 100%; max-width: 420px;
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px;
+  }
+  .brand { font-size: 11px; font-weight: 700; letter-spacing: 4px; color: rgba(255,255,255,0.3); }
+  .back-btn {
+    font-size: 13px; color: rgba(255,255,255,0.4);
+    background: rgba(255,255,255,0.07);
+    border: none; border-radius: 20px; padding: 6px 14px;
+    cursor: pointer; transition: background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .back-btn:hover { background: rgba(255,255,255,0.12); }
+
+  /* ── Card ── */
+  .card {
+    width: 100%; max-width: 420px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 28px;
+    padding: 32px 28px;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    animation: slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  /* ── Avatar + name ── */
+  .member-header { display: flex; flex-direction: column; align-items: center; gap: 14px; margin-bottom: 28px; }
+  .avatar {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: linear-gradient(135deg, rgba(48,209,88,0.3), rgba(10,132,255,0.3));
+    border: 2px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; font-weight: 700;
+    animation: pop 0.5s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .member-name { font-size: 24px; font-weight: 700; text-align: center; letter-spacing: -0.3px; }
+  .member-id { font-size: 13px; color: rgba(255,255,255,0.35); }
+
+  /* ── Status pill ── */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 7px 16px; border-radius: 100px;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.2px;
+    transition: all 0.3s;
+  }
+  .status-pill.pending   { background: rgba(255,159,10,0.12); color: var(--orange); border: 1px solid rgba(255,159,10,0.2); }
+  .status-pill.admitted  { background: rgba(48,209,88,0.1); color: var(--green); border: 1px solid rgba(48,209,88,0.2); }
+  .status-pill.checked_in{ background: rgba(10,132,255,0.12); color: var(--blue); border: 1px solid rgba(10,132,255,0.2); }
+  .status-pill.checked_out{background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.1); }
+  .status-pill.declined  { background: rgba(255,69,58,0.1); color: var(--red); border: 1px solid rgba(255,69,58,0.2); }
+  .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .pulse.off { animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.35;transform:scale(0.8)} }
+
+  /* ── Details grid ── */
+  .details {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; margin: 20px 0;
+  }
+  .detail {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px; padding: 12px 14px;
+  }
+  .detail-label { font-size: 10px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.8px; }
+  .detail-val { font-size: 14px; color: rgba(255,255,255,0.75); margin-top: 4px; font-weight: 500; word-break: break-word; }
+  .detail.full { grid-column: 1/-1; }
+
+  /* ── QR section ── */
+  .qr-section { display: flex; justify-content: center; margin: 8px 0 20px; }
+  .qr-wrap {
+    background: #fff; border-radius: 18px; padding: 14px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    animation: pop 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .qr-wrap img { width: 160px; height: 160px; display: block; border-radius: 6px; }
+
+  /* ── Divider ── */
+  .divider {
+    height: 1px; background: rgba(255,255,255,0.07);
+    margin: 20px 0;
+  }
+
+  /* ── Action buttons ── */
+  .actions { display: flex; flex-direction: column; gap: 12px; }
+
+  .action-btn {
+    width: 100%; padding: 17px;
+    border: none; border-radius: 16px;
+    font-size: 16px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    position: relative; overflow: hidden;
+  }
+  .action-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: rgba(255,255,255,0.12);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .action-btn:active::after { opacity: 1; }
+  .action-btn:active { transform: scale(0.97); }
+
+  .btn-checkin {
+    background: linear-gradient(135deg, #30d158, #25a244);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(48,209,88,0.3);
+  }
+  .btn-checkin:hover { box-shadow: 0 6px 28px rgba(48,209,88,0.4); transform: translateY(-1px); }
+
+  .btn-checkout {
+    background: linear-gradient(135deg, #ff9f0a, #d4820a);
+    color: #000;
+    box-shadow: 0 4px 20px rgba(255,159,10,0.25);
+  }
+  .btn-checkout:hover { box-shadow: 0 6px 28px rgba(255,159,10,0.35); transform: translateY(-1px); }
+
+  .action-btn:disabled {
+    background: rgba(255,255,255,0.07) !important;
+    color: rgba(255,255,255,0.25) !important;
+    box-shadow: none !important;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+  .action-btn:disabled::after { display: none; }
+
+  .btn-icon { font-size: 18px; }
+
+  /* ── Complete state ── */
+  .complete-banner {
+    display: none;
+    text-align: center; padding: 20px;
+    background: rgba(48,209,88,0.07);
+    border: 1px solid rgba(48,209,88,0.15);
+    border-radius: 16px;
+    animation: fadeIn 0.4s ease;
+  }
+  .complete-banner.show { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .complete-icon { font-size: 32px; margin-bottom: 8px; }
+  .complete-text { font-size: 15px; font-weight: 600; color: var(--green); }
+  .complete-sub { font-size: 13px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+    background: rgba(28,28,30,0.95); backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 12px 22px;
+    font-size: 14px; font-weight: 500;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none;
+    z-index: 200; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  .toast.ok  { border-color: rgba(48,209,88,0.4); color: var(--green); }
+  .toast.err { border-color: rgba(255,69,58,0.4); color: var(--red); }
+
+  /* ── Loading state ── */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { from{background-position:200% 0} to{background-position:-200% 0} }
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+
+<div class="page">
+  <div class="topbar">
+    <div class="brand">SIDEON</div>
+    <button class="back-btn" onclick="goBack()">← Back</button>
+  </div>
+
+  <div class="card" id="card">
+    <!-- Member header -->
+    <div class="member-header">
+      <div class="avatar" id="avatar">—</div>
+      <div>
+        <div class="member-name" id="memberName">Loading…</div>
+        <div class="member-id" id="memberId"></div>
+      </div>
+      <div class="status-pill pending" id="statusPill">
+        <div class="pulse" id="pulseEl"></div>
+        <span id="statusText">Loading</span>
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="qr-section">
+      <div class="qr-wrap">
+        <img id="qrImg" src="" alt="QR Code" style="opacity:0;transition:opacity 0.3s">
+      </div>
+    </div>
+
+    <!-- Member details -->
+    <div class="details" id="detailsGrid">
+      <div class="detail"><div class="detail-label">Email</div><div class="detail-val" id="dEmail">—</div></div>
+      <div class="detail"><div class="detail-label">Mobile</div><div class="detail-val" id="dMobile">—</div></div>
+      <div class="detail"><div class="detail-label">Agent / Group</div><div class="detail-val" id="dAgent">—</div></div>
+      <div class="detail"><div class="detail-label">Admitted</div><div class="detail-val" id="dAdmitted">—</div></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Actions -->
+    <div class="actions" id="actions">
+      <button class="action-btn btn-checkin" id="btnCheckin" onclick="doCheckin()">
+        <span class="btn-icon">✓</span> Check In
+      </button>
+      <button class="action-btn btn-checkout" id="btnCheckout" onclick="doCheckout()" disabled>
+        <span class="btn-icon">→</span> Check Out
+      </button>
+    </div>
+
+    <!-- Complete state -->
+    <div class="complete-banner" id="completeBanner">
+      <div class="complete-icon">🎉</div>
+      <div class="complete-text">Session complete</div>
+      <div class="complete-sub" id="completeTime"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3001' : '';
+
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  const pin = sessionStorage.getItem('scanner_pin');
+
+  // Guard: if no PIN in session, bounce back to PIN screen
+  if (!token || !pin) {
+    location.href = token ? `pin.html?token=${encodeURIComponent(token)}` : 'pin.html';
+  }
+
+  function fmt(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function initials(name) {
+    return (name || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  }
+
+  function setStatus(status, checkedIn, checkedOut) {
+    const pill = document.getElementById('statusPill');
+    const txt  = document.getElementById('statusText');
+    const pulse= document.getElementById('pulseEl');
+
+    let cls = status, label = status;
+    if (checkedOut)     { cls = 'checked_out'; label = 'Checked Out'; pulse.className = 'pulse off'; }
+    else if (checkedIn) { cls = 'checked_in';  label = 'Checked In';  pulse.className = 'pulse'; }
+    else if (status === 'admitted')  { cls = 'admitted';  label = 'Admitted'; pulse.className = 'pulse'; }
+    else if (status === 'pending')   { cls = 'pending';   label = 'Pending';  pulse.className = 'pulse'; }
+    else if (status === 'declined')  { cls = 'declined';  label = 'Declined'; pulse.className = 'pulse off'; }
+
+    pill.className = 'status-pill ' + cls;
+    txt.textContent = label;
+  }
+
+  function applyState(data) {
+    const m = data.member;
+    const checkedIn  = !!data.checked_in_at;
+    const checkedOut = !!data.checked_out_at;
+    const admitted   = data.admission_status === 'admitted';
+
+    // Header
+    document.getElementById('avatar').textContent = initials(m.name);
+    document.getElementById('memberName').textContent = m.name;
+    document.getElementById('memberId').textContent = 'ID: ' + m.member_id;
+
+    // Status
+    setStatus(data.admission_status, checkedIn, checkedOut);
+
+    // Details
+    document.getElementById('dEmail').textContent    = m.email || '—';
+    document.getElementById('dMobile').textContent   = m.mobile || '—';
+    document.getElementById('dAgent').textContent    = m.agent || '—';
+    document.getElementById('dAdmitted').textContent = fmt(data.admitted_at);
+
+    // QR image
+    const img = document.getElementById('qrImg');
+    img.src = `${API}/api/generate-qr-image?token=${encodeURIComponent(token)}&format=png`;
+    img.onload = () => { img.style.opacity = '1'; };
+
+    // Buttons
+    const btnIn  = document.getElementById('btnCheckin');
+    const btnOut = document.getElementById('btnCheckout');
+
+    if (checkedOut) {
+      // Session complete
+      btnIn.disabled = true;
+      btnOut.disabled = true;
+      document.getElementById('actions').style.display = 'none';
+      const banner = document.getElementById('completeBanner');
+      banner.classList.add('show');
+      document.getElementById('completeTime').textContent =
+        `Checked in ${fmt(data.checked_in_at)} · Checked out ${fmt(data.checked_out_at)}`;
+    } else if (checkedIn) {
+      // Only check-out available
+      btnIn.disabled = true;
+      btnIn.innerHTML = `<span class="btn-icon">✓</span> Checked In at ${fmt(data.checked_in_at)}`;
+      btnOut.disabled = false;
+    } else if (admitted) {
+      // Only check-in available
+      btnIn.disabled = false;
+      btnOut.disabled = true;
+    } else {
+      // Not admitted — disable both
+      btnIn.disabled = true;
+      btnOut.disabled = true;
+      btnIn.innerHTML = `<span class="btn-icon">⏳</span> Not Yet Admitted`;
+    }
+  }
+
+  async function loadStatus() {
+    try {
+      const res = await fetch(`${API}/api/scanner/status?token=${encodeURIComponent(token)}`);
+      const data = await res.json();
+      if (data.success) applyState(data);
+    } catch {}
+  }
+
+  async function doCheckin() {
+    const btn = document.getElementById('btnCheckin');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span> Checking in…';
+
+    try {
+      const res = await fetch(`${API}/api/scanner/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, pin })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast('Checked in ✓', 'ok');
+        // Update button states
+        btn.innerHTML = `<span class="btn-icon">✓</span> Checked In at ${fmt(data.checked_in_at)}`;
+        btn.disabled = true;
+        document.getElementById('btnCheckout').disabled = false;
+        setStatus('admitted', true, false);
+        // Animate check-in success
+        btn.style.background = 'rgba(48,209,88,0.15)';
+        btn.style.color = 'rgba(48,209,88,0.6)';
+      } else if (res.status === 403) {
+        showToast('Not yet admitted by admin', 'err');
+        btn.disabled = false;
+        btn.innerHTML = `<span class="btn-icon">✓</span> Check In`;
+      } else {
+        showToast(data.error || 'Failed', 'err');
+        btn.disabled = false;
+        btn.innerHTML = `<span class="btn-icon">✓</span> Check In`;
+      }
+    } catch {
+      showToast('Connection error', 'err');
+      btn.disabled = false;
+      btn.innerHTML = `<span class="btn-icon">✓</span> Check In`;
+    }
+  }
+
+  async function doCheckout() {
+    const btn = document.getElementById('btnCheckout');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-icon">⏳</span> Checking out…';
+
+    try {
+      const res = await fetch(`${API}/api/scanner/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, pin })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showToast('Checked out', 'ok');
+        // Show complete state
+        document.getElementById('btnCheckin').disabled = true;
+        btn.disabled = true;
+        document.getElementById('actions').style.display = 'none';
+        const banner = document.getElementById('completeBanner');
+        banner.classList.add('show');
+        setStatus('admitted', true, true);
+        const ci = document.getElementById('btnCheckin').textContent.match(/\d+:\d+/)?.[0] || '—';
+        document.getElementById('completeTime').textContent =
+          `Checked out at ${fmt(data.checked_out_at)}`;
+      } else {
+        showToast(data.error || 'Failed', 'err');
+        btn.disabled = false;
+        btn.innerHTML = `<span class="btn-icon">→</span> Check Out`;
+      }
+    } catch {
+      showToast('Connection error', 'err');
+      btn.disabled = false;
+      btn.innerHTML = `<span class="btn-icon">→</span> Check Out`;
+    }
+  }
+
+  function goBack() {
+    sessionStorage.removeItem('scanner_pin');
+    sessionStorage.removeItem('scanner_token');
+    location.href = `pin.html?token=${encodeURIComponent(token)}`;
+  }
+
+  let toastT;
+  function showToast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => { el.className = 'toast'; }, 3000);
+  }
+
+  loadStatus();
+</script>
+</body>
+</html>

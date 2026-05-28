@@ -167,6 +167,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api', require('./routes/qrRoutes'));
 app.use('/api', require('./routes/healthRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/scanner', require('./routes/scannerRoutes'));
 
 // Load system routes (health, version, metrics) safely
 try {

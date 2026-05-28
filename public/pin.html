@@ -3,243 +3,282 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>SIDEON — Enter PIN</title>
+<title>SIDEON — Scanner</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #30d158;
+    --red: #ff453a;
+    --orange: #ff9f0a;
+    --blue: #0a84ff;
+    --surface: rgba(255,255,255,0.07);
+    --border: rgba(255,255,255,0.1);
+  }
+
+  html, body {
+    height: 100%; overflow: hidden;
     font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
     background: #000; color: #fff;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Ambient orbs ── */
+  .orb {
+    position: fixed; border-radius: 50%; filter: blur(80px);
+    animation: float 8s ease-in-out infinite; pointer-events: none; z-index: 0;
+  }
+  .orb-1 { width: 300px; height: 300px; background: rgba(48,209,88,0.12); top: -100px; left: -80px; animation-delay: 0s; }
+  .orb-2 { width: 250px; height: 250px; background: rgba(10,132,255,0.1); bottom: -60px; right: -60px; animation-delay: -3s; }
+  .orb-3 { width: 180px; height: 180px; background: rgba(255,159,10,0.08); top: 40%; left: 60%; animation-delay: -5s; }
+  @keyframes float {
+    0%,100% { transform: translateY(0px) scale(1); }
+    50%      { transform: translateY(-30px) scale(1.05); }
+  }
+
+  /* ── Layout ── */
+  .screen {
+    position: relative; z-index: 1;
     min-height: 100dvh;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    user-select: none;
-  }
-  .lock-screen {
-    width: 100%; max-width: 380px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
     padding: 24px 0 48px;
-    display: flex; flex-direction: column; align-items: center; gap: 32px;
+    gap: 28px;
   }
-  .title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; text-align: center; }
-  .subtitle { font-size: 15px; color: rgba(255,255,255,0.6); text-align: center; margin-top: -24px; }
-  .dots { display: flex; gap: 20px; }
+
+  /* ── Header ── */
+  .brand { font-size: 11px; font-weight: 700; letter-spacing: 4px; color: rgba(255,255,255,0.3); }
+  .title-block { text-align: center; }
+  .title { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+  .subtitle { font-size: 14px; color: rgba(255,255,255,0.4); margin-top: 5px; }
+
+  /* ── PIN dots ── */
+  .dots { display: flex; gap: 18px; align-items: center; }
   .dot {
-    width: 14px; height: 14px; border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,0.5);
-    transition: background 0.15s, border-color 0.15s;
+    width: 13px; height: 13px; border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.3);
+    transition: all 0.15s cubic-bezier(0.34,1.56,0.64,1);
   }
-  .dot.filled { background: #fff; border-color: #fff; }
-  .dot.error { background: #ff453a; border-color: #ff453a; }
-  .keypad {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 12px; width: 100%; padding: 0 24px;
+  .dot.filled { background: #fff; border-color: #fff; transform: scale(1.15); }
+  .dot.error  { background: var(--red); border-color: var(--red); transform: scale(1.15); }
+  .dot.success{ background: var(--green); border-color: var(--green); transform: scale(1.15); }
+
+  /* ── Attempt tracker ── */
+  .attempts {
+    display: flex; gap: 8px; align-items: center;
+    min-height: 14px;
   }
-  .key {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    width: 100%; aspect-ratio: 1; border-radius: 50%;
+  .att-dot {
+    width: 7px; height: 7px; border-radius: 50%;
     background: rgba(255,255,255,0.12);
-    cursor: pointer; transition: background 0.1s, transform 0.1s;
-    -webkit-tap-highlight-color: transparent; backdrop-filter: blur(8px);
+    transition: background 0.3s, transform 0.3s;
   }
-  .key:active { background: rgba(255,255,255,0.28); transform: scale(0.95); }
-  .key .num { font-size: 28px; font-weight: 300; line-height: 1; }
-  .key .letters { font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1.5px; margin-top: 2px; }
-  .key.empty, .key.action { background: transparent; }
-  .key.delete { font-size: 22px; }
-  .keypad.locked .key { opacity: 0.2; pointer-events: none; cursor: not-allowed; }
-  .status-msg {
-    font-size: 14px; color: rgba(255,255,255,0.5); text-align: center;
-    min-height: 20px; padding: 0 24px;
+  .att-dot.used { background: var(--red); transform: scale(1.2); }
+
+  /* ── Status message ── */
+  .status {
+    font-size: 14px; text-align: center; min-height: 18px;
+    color: rgba(255,255,255,0.45); padding: 0 28px;
+    transition: color 0.2s;
   }
-  .status-msg.error { color: #ff453a; }
-  .status-msg.success { color: #30d158; }
-  .status-msg.locked { color: #ff9f0a; font-size: 15px; font-weight: 500; }
+  .status.err     { color: var(--red); }
+  .status.ok      { color: var(--green); }
+  .status.warning { color: var(--orange); }
+
+  /* ── Spinner ── */
   .spinner {
-    width: 20px; height: 20px;
-    border: 2px solid rgba(255,255,255,0.2); border-top-color: #fff;
-    border-radius: 50%; animation: spin 0.7s linear infinite; display: none;
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: rgba(255,255,255,0.7);
+    animation: spin 0.65s linear infinite;
+    display: none;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .shake { animation: shake 0.4s ease; }
+
+  /* ── Keypad ── */
+  .keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    width: 100%; max-width: 340px;
+    padding: 0 20px;
+  }
+  .key {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    aspect-ratio: 1; border-radius: 50%;
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+    cursor: pointer;
+    transition: transform 0.1s, background 0.1s, box-shadow 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+  .key:active, .key.pressed {
+    transform: scale(0.88);
+    background: rgba(255,255,255,0.22);
+    box-shadow: 0 0 20px rgba(255,255,255,0.08);
+  }
+  .key .num { font-size: 26px; font-weight: 300; line-height: 1; }
+  .key .sub { font-size: 9px; color: rgba(255,255,255,0.4); letter-spacing: 2px; margin-top: 2px; }
+  .key.ghost { background: transparent; border-color: transparent; cursor: default; }
+  .key.ghost:active { transform: none; background: transparent; }
+  .key.del { font-size: 20px; }
+  .keypad.locked .key { opacity: 0.15; pointer-events: none; }
+
+  /* ── Shake ── */
   @keyframes shake {
     0%,100% { transform: translateX(0); }
-    20% { transform: translateX(-10px); }
-    40% { transform: translateX(10px); }
-    60% { transform: translateX(-8px); }
-    80% { transform: translateX(8px); }
+    15%      { transform: translateX(-12px); }
+    30%      { transform: translateX(10px); }
+    45%      { transform: translateX(-8px); }
+    60%      { transform: translateX(6px); }
+    75%      { transform: translateX(-4px); }
+    90%      { transform: translateX(3px); }
   }
-  .lock-icon {
-    font-size: 48px; display: none; text-align: center;
+  .shake { animation: shake 0.5s cubic-bezier(0.36,0.07,0.19,0.97); }
+
+  /* ── Lock state ── */
+  .lock-icon { font-size: 52px; display: none; animation: pop 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+  @keyframes pop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* ── Success overlay ── */
+  .success-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.95);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px;
   }
-  .attempts-indicator {
-    display: flex; gap: 6px; justify-content: center;
+  .success-overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .success-check {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: rgba(48,209,88,0.15);
+    border: 2px solid rgba(48,209,88,0.4);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    animation: pop 0.5s 0.1s cubic-bezier(0.34,1.56,0.64,1) both;
   }
-  .attempt-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: rgba(255,255,255,0.15);
-    transition: background 0.2s;
+  .success-name {
+    font-size: 26px; font-weight: 700; text-align: center; padding: 0 32px;
+    animation: slideUp 0.4s 0.2s ease both;
   }
-  .attempt-dot.used { background: #ff453a; }
+  .success-label {
+    font-size: 14px; color: rgba(255,255,255,0.4); text-align: center;
+    animation: slideUp 0.4s 0.3s ease both;
+  }
+  @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 </style>
 </head>
 <body>
-<div class="lock-screen">
-  <div>
-    <div class="title" id="titleText">Enter PIN</div>
-    <div class="subtitle" id="memberName">SIDEON Access</div>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div class="screen">
+  <div class="brand">SIDEON</div>
+
+  <div class="title-block">
+    <div class="title" id="titleText">Scanner</div>
+    <div class="subtitle" id="subtitleText">Enter staff PIN to continue</div>
   </div>
 
   <div class="lock-icon" id="lockIcon">🔒</div>
 
   <div class="dots" id="dots">
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
-    <div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
   </div>
 
-  <!-- 3 attempt indicators -->
-  <div class="attempts-indicator" id="attemptsRow">
-    <div class="attempt-dot" id="a1"></div>
-    <div class="attempt-dot" id="a2"></div>
-    <div class="attempt-dot" id="a3"></div>
+  <div class="attempts" id="attempts">
+    <div class="att-dot" id="a1"></div>
+    <div class="att-dot" id="a2"></div>
+    <div class="att-dot" id="a3"></div>
   </div>
 
-  <div class="status-msg" id="statusMsg"></div>
+  <div class="status" id="status"></div>
   <div class="spinner" id="spinner"></div>
 
   <div class="keypad" id="keypad">
-    <div class="key" onclick="press('1')"><span class="num">1</span></div>
-    <div class="key" onclick="press('2')"><span class="num">2</span><span class="letters">ABC</span></div>
-    <div class="key" onclick="press('3')"><span class="num">3</span><span class="letters">DEF</span></div>
-    <div class="key" onclick="press('4')"><span class="num">4</span><span class="letters">GHI</span></div>
-    <div class="key" onclick="press('5')"><span class="num">5</span><span class="letters">JKL</span></div>
-    <div class="key" onclick="press('6')"><span class="num">6</span><span class="letters">MNO</span></div>
-    <div class="key" onclick="press('7')"><span class="num">7</span><span class="letters">PQRS</span></div>
-    <div class="key" onclick="press('8')"><span class="num">8</span><span class="letters">TUV</span></div>
-    <div class="key" onclick="press('9')"><span class="num">9</span><span class="letters">WXYZ</span></div>
-    <div class="key empty"></div>
-    <div class="key" onclick="press('0')"><span class="num">0</span></div>
-    <div class="key delete" onclick="deleteLast()">⌫</div>
+    <div class="key" ontouchstart="press('1')" onclick="press('1')"><span class="num">1</span></div>
+    <div class="key" ontouchstart="press('2')" onclick="press('2')"><span class="num">2</span><span class="sub">ABC</span></div>
+    <div class="key" ontouchstart="press('3')" onclick="press('3')"><span class="num">3</span><span class="sub">DEF</span></div>
+    <div class="key" ontouchstart="press('4')" onclick="press('4')"><span class="num">4</span><span class="sub">GHI</span></div>
+    <div class="key" ontouchstart="press('5')" onclick="press('5')"><span class="num">5</span><span class="sub">JKL</span></div>
+    <div class="key" ontouchstart="press('6')" onclick="press('6')"><span class="num">6</span><span class="sub">MNO</span></div>
+    <div class="key" ontouchstart="press('7')" onclick="press('7')"><span class="num">7</span><span class="sub">PQRS</span></div>
+    <div class="key" ontouchstart="press('8')" onclick="press('8')"><span class="num">8</span><span class="sub">TUV</span></div>
+    <div class="key" ontouchstart="press('9')" onclick="press('9')"><span class="num">9</span><span class="sub">WXYZ</span></div>
+    <div class="key ghost"></div>
+    <div class="key" ontouchstart="press('0')" onclick="press('0')"><span class="num">0</span></div>
+    <div class="key del" ontouchstart="del()" onclick="del()">⌫</div>
   </div>
 </div>
 
+<!-- Success transition overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-check">✓</div>
+  <div class="success-name" id="successName"></div>
+  <div class="success-label">PIN verified — loading member…</div>
+</div>
+
 <script>
-  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:3001' : '';
 
-  const params = new URLSearchParams(window.location.search);
-  const qrToken = params.get('token');
-  let pin = '';
-  let submitting = false;
-  let failedAttempts = 0;
-  const MAX_ATTEMPTS = 3;
+  const params = new URLSearchParams(location.search);
+  const token = params.get('token');
+  let code = '', submitting = false, fails = 0;
 
-  if (!qrToken) {
-    setError('Invalid link — no token provided.');
+  if (!token) {
+    document.getElementById('status').textContent = 'Invalid link — no token.';
+    document.getElementById('status').className = 'status err';
   }
 
-  function setError(msg) {
-    document.getElementById('statusMsg').textContent = msg;
-    document.getElementById('statusMsg').className = 'status-msg error';
-  }
-
-  function updateDots() {
+  function refreshDots() {
     document.querySelectorAll('.dot').forEach((d, i) => {
-      d.className = 'dot' + (i < pin.length ? ' filled' : '');
+      d.className = 'dot' + (i < code.length ? ' filled' : '');
     });
   }
 
-  function updateAttemptDots() {
-    for (let i = 1; i <= 3; i++) {
-      document.getElementById('a' + i).className =
-        'attempt-dot' + (i <= failedAttempts ? ' used' : '');
-    }
+  function refreshAttempts() {
+    [1,2,3].forEach(i => {
+      document.getElementById('a'+i).className = 'att-dot' + (i <= fails ? ' used' : '');
+    });
   }
 
-  function lockKeypad(message) {
+  function setStatus(msg, cls = '') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  function lockDevice(msg) {
     document.getElementById('keypad').classList.add('locked');
     document.getElementById('lockIcon').style.display = 'block';
     document.getElementById('dots').style.display = 'none';
-    document.getElementById('attemptsRow').style.display = 'none';
+    document.getElementById('attempts').style.display = 'none';
     document.getElementById('titleText').textContent = 'Device Locked';
-    const msg = document.getElementById('statusMsg');
-    msg.textContent = message || 'Too many failed attempts. Contact the event team.';
-    msg.className = 'status-msg locked';
+    document.getElementById('subtitleText').textContent = 'Contact event staff';
+    setStatus(msg || 'Too many wrong attempts.', 'err');
     submitting = true;
   }
 
-  function press(digit) {
-    if (submitting || pin.length >= 6) return;
-    pin += digit;
-    updateDots();
-    if (pin.length === 6) setTimeout(submit, 120);
+  function press(d) {
+    if (submitting || code.length >= 6) return;
+    code += d;
+    refreshDots();
+    if (code.length === 6) setTimeout(submit, 100);
   }
 
-  function deleteLast() {
+  function del() {
     if (submitting) return;
-    pin = pin.slice(0, -1);
-    updateDots();
-  }
-
-  async function submit() {
-    if (submitting || !qrToken) return;
-    submitting = true;
-    document.getElementById('spinner').style.display = 'block';
-    document.getElementById('statusMsg').textContent = '';
-
-    try {
-      const res = await fetch(`${API_BASE}/api/verify-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: qrToken, pin })
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        document.querySelectorAll('.dot').forEach(d => d.className = 'dot filled');
-        document.getElementById('statusMsg').textContent = 'Access granted! Welcome.';
-        document.getElementById('statusMsg').className = 'status-msg success';
-        document.getElementById('attemptsRow').style.display = 'none';
-        setTimeout(() => {
-          document.getElementById('statusMsg').textContent =
-            '✓ Checked in at ' + new Date(data.checked_in_at).toLocaleTimeString();
-        }, 800);
-        // keep submitting = true so keypad stays disabled after success
-      } else if (data.locked || res.status === 423 || (data.attempts_left !== undefined && data.attempts_left <= 0)) {
-        // Locked — too many attempts
-        failedAttempts = MAX_ATTEMPTS;
-        updateAttemptDots();
-        shake();
-        lockKeypad('Too many failed attempts. Contact the event team.');
-      } else if (res.status === 403) {
-        // Not admitted
-        setError('Not yet admitted. Please wait for approval.');
-        pin = ''; updateDots(); submitting = false;
-      } else if (res.status === 409) {
-        document.getElementById('statusMsg').textContent = 'Already checked in.';
-        document.getElementById('statusMsg').className = 'status-msg success';
-        submitting = true;
-      } else {
-        // Wrong PIN
-        failedAttempts++;
-        updateAttemptDots();
-        shake();
-        const left = MAX_ATTEMPTS - failedAttempts;
-        if (left <= 0) {
-          lockKeypad('Too many failed attempts. Contact the event team.');
-        } else {
-          setError(`Incorrect PIN. ${left} attempt${left === 1 ? '' : 's'} remaining.`);
-          pin = ''; updateDots(); submitting = false;
-        }
-      }
-    } catch {
-      shake();
-      setError('Connection error. Try again.');
-      pin = ''; updateDots(); submitting = false;
-    } finally {
-      document.getElementById('spinner').style.display = 'none';
-    }
+    code = code.slice(0, -1);
+    refreshDots();
   }
 
   function shake() {
@@ -249,9 +288,57 @@
     el.classList.add('shake');
   }
 
+  async function submit() {
+    if (submitting || !token) return;
+    submitting = true;
+    document.getElementById('spinner').style.display = 'block';
+    setStatus('Verifying…');
+
+    try {
+      const res = await fetch(`${API}/api/scanner/auth`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, pin: code })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        // Show success overlay then redirect
+        document.getElementById('successName').textContent = data.member.name;
+        document.getElementById('successOverlay').classList.add('show');
+        // Store PIN in session for the detail page
+        sessionStorage.setItem('scanner_pin', code);
+        sessionStorage.setItem('scanner_token', token);
+        setTimeout(() => {
+          location.href = `member-detail.html?token=${encodeURIComponent(token)}`;
+        }, 1200);
+      } else if (data.locked || res.status === 423) {
+        fails = 3; refreshAttempts(); shake();
+        lockDevice('Too many failed attempts.');
+      } else {
+        fails++;
+        refreshAttempts();
+        shake();
+        const left = 3 - fails;
+        if (left <= 0) {
+          lockDevice('Too many failed attempts.');
+        } else {
+          setStatus(`Incorrect PIN · ${left} attempt${left===1?'':'s'} left`, 'err');
+          code = ''; refreshDots(); submitting = false;
+        }
+      }
+    } catch {
+      shake();
+      setStatus('Connection error — try again', 'err');
+      code = ''; refreshDots(); submitting = false;
+    } finally {
+      document.getElementById('spinner').style.display = 'none';
+    }
+  }
+
   document.addEventListener('keydown', e => {
     if (e.key >= '0' && e.key <= '9') press(e.key);
-    if (e.key === 'Backspace') deleteLast();
+    if (e.key === 'Backspace') del();
   });
 </script>
 </body>
