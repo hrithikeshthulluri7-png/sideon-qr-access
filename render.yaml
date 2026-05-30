@@ -29,7 +29,7 @@ services:
       - key: ADMIN_JWT_EXPIRES
         value: 8h
       - key: ADMIN_SETUP_KEY
-        generateValue: true
+        value: "sideon-setup-2026"
       - key: CORS_ORIGIN
         value: "*"
       - key: EVENT_PIN
