@@ -1,34 +1,30 @@
-const sqlite3 = require('sqlite3').verbose();
+/**
+ * database.js
+ *
+ * Uses @libsql/client (Turso) via LibsqlAdapter for permanent cloud storage.
+ * Falls back to a local SQLite file when TURSO_DATABASE_URL is not set (dev).
+ *
+ * The exported `db` object exposes the same sqlite3 callback API
+ * (db.get / db.run / db.all / db.serialize / db.close) so all routes
+ * and controllers work without any changes.
+ */
+
 const path = require('path');
 const fs = require('fs');
+const { LibsqlAdapter } = require('./libsqlAdapter');
 
-const DB_PATH = process.env.DATABASE_URL || path.join(__dirname, '../data/sideon.db');
+// Ensure local data dir exists (used in dev / local fallback)
+const LOCAL_DB_PATH = process.env.DATABASE_URL || path.join(__dirname, '../data/sideon.db');
+fs.mkdirSync(path.dirname(LOCAL_DB_PATH), { recursive: true });
 
-// Ensure the data directory exists (not committed to git)
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-
-// Create connection
-const db = new sqlite3.Database(DB_PATH, (err) => {
-  if (err) {
-    console.error('[DB ERROR]', err.message);
-  } else {
-    console.log('[DB] Connected to SQLite database');
-  }
-});
+// Single shared DB instance
+const db = new LibsqlAdapter();
 
 // Enable foreign keys
 db.run('PRAGMA foreign_keys = ON');
 
 const initializeDatabase = () => {
-  // Run Phase 2 migration if needed
-  try {
-    const { migrateToPhase2 } = require('./migrate');
-    migrateToPhase2();
-  } catch (migrationErr) {
-    // Migration module might not be required if not needed
-  }
-
-  // Phase 3: Initialize rate limit table
+  // Rate limit table (optional module)
   try {
     const { initializeRateLimitTable } = require('./slidingWindowRateLimiter');
     initializeRateLimitTable();
@@ -37,7 +33,7 @@ const initializeDatabase = () => {
   }
 
   db.serialize(() => {
-    // Members table
+    // ── Members ──────────────────────────────────────────────────────────────
     db.run(`
       CREATE TABLE IF NOT EXISTS members (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,6 +42,9 @@ const initializeDatabase = () => {
         email VARCHAR(255),
         mobile VARCHAR(20),
         agent VARCHAR(255),
+        admission_status TEXT DEFAULT 'pending',
+        admitted_at DATETIME,
+        admitted_by TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
@@ -54,12 +53,7 @@ const initializeDatabase = () => {
       else console.log('[DB] Members table ready');
     });
 
-    // Add admission columns to members if they don't exist (migration)
-    db.run(`ALTER TABLE members ADD COLUMN admission_status TEXT DEFAULT 'pending'`, () => {});
-    db.run(`ALTER TABLE members ADD COLUMN admitted_at DATETIME`, () => {});
-    db.run(`ALTER TABLE members ADD COLUMN admitted_by TEXT`, () => {});
-
-    // Tokens table
+    // ── Tokens ───────────────────────────────────────────────────────────────
     db.run(`
       CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,9 +63,10 @@ const initializeDatabase = () => {
         expiresAt DATETIME NOT NULL,
         verified_at DATETIME,
         checked_in_at DATETIME,
+        checked_out_at DATETIME,
         scan_count INTEGER DEFAULT 0,
         pin_hash TEXT,
-        checked_out_at DATETIME,
+        pin_failed_attempts INTEGER DEFAULT 0,
         FOREIGN KEY (member_id) REFERENCES members(member_id) ON DELETE CASCADE
       )
     `, (err) => {
@@ -79,12 +74,7 @@ const initializeDatabase = () => {
       else console.log('[DB] Tokens table ready');
     });
 
-    // Add pin_hash and checked_out_at to tokens if upgrading existing DB
-    db.run(`ALTER TABLE tokens ADD COLUMN pin_hash TEXT`, () => {});
-    db.run(`ALTER TABLE tokens ADD COLUMN checked_out_at DATETIME`, () => {});
-    db.run(`ALTER TABLE tokens ADD COLUMN pin_failed_attempts INTEGER DEFAULT 0`, () => {});
-
-    // Admin users table
+    // ── Admin users ───────────────────────────────────────────────────────────
     db.run(`
       CREATE TABLE IF NOT EXISTS admin_users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,7 +88,7 @@ const initializeDatabase = () => {
       else console.log('[DB] Admin users table ready');
     });
 
-    // Audit logs table for compliance and debugging
+    // ── Audit logs ────────────────────────────────────────────────────────────
     db.run(`
       CREATE TABLE IF NOT EXISTS audit_logs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -117,39 +107,21 @@ const initializeDatabase = () => {
       else console.log('[DB] Audit logs table ready');
     });
 
-    // Indexes for performance
-    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token)`, (err) => {
-      if (err) console.error('[DB ERROR] Index tokens_token:', err.message);
-    });
+    // ── Indexes ───────────────────────────────────────────────────────────────
+    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_token ON tokens(token)`, () => {});
+    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_member_id ON tokens(member_id)`, () => {});
+    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_expiresAt ON tokens(expiresAt)`, () => {});
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)`, () => {});
+    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_member_id ON audit_logs(member_id)`, () => {});
 
-    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_member_id ON tokens(member_id)`, (err) => {
-      if (err) console.error('[DB ERROR] Index tokens_member_id:', err.message);
-    });
-
-    db.run(`CREATE INDEX IF NOT EXISTS idx_tokens_expiresAt ON tokens(expiresAt)`, (err) => {
-      if (err) console.error('[DB ERROR] Index tokens_expiresAt:', err.message);
-    });
-
-    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)`, (err) => {
-      if (err) console.error('[DB ERROR] Index audit_logs_timestamp:', err.message);
-    });
-
-    db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_member_id ON audit_logs(member_id)`, (err) => {
-      if (err) console.error('[DB ERROR] Index audit_logs_member_id:', err.message);
-    });
-
-    // Auto-restore members from QR backup if DB is empty
+    // ── Auto-restore from QR backup on empty DB ───────────────────────────────
     setTimeout(() => {
       try {
         const { seedRestoreIfEmpty } = require('./seedRestore');
         seedRestoreIfEmpty(db, console);
       } catch (e) { /* seedRestore is optional */ }
-    }, 500);
-
+    }, 800);
   });
 };
 
-module.exports = {
-  db,
-  initializeDatabase
-};
+module.exports = { db, initializeDatabase };

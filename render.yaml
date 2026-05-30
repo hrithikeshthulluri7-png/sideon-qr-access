@@ -34,3 +34,7 @@ services:
         value: "*"
       - key: EVENT_PIN
         value: "369874"
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false
