@@ -137,6 +137,15 @@ const initializeDatabase = () => {
     db.run(`CREATE INDEX IF NOT EXISTS idx_audit_logs_member_id ON audit_logs(member_id)`, (err) => {
       if (err) console.error('[DB ERROR] Index audit_logs_member_id:', err.message);
     });
+
+    // Auto-restore members from QR backup if DB is empty
+    setTimeout(() => {
+      try {
+        const { seedRestoreIfEmpty } = require('./seedRestore');
+        seedRestoreIfEmpty(db, console);
+      } catch (e) { /* seedRestore is optional */ }
+    }, 500);
+
   });
 };
 
