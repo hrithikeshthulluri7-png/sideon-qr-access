@@ -6,19 +6,11 @@ const crypto = require('crypto');
  * Handles JWT token generation, signing, verification
  */
 
-const JWT_SECRET = process.env.JWT_SECRET || generateJWTSecret();
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h'; // 1 hour default
-
-/**
- * Generate a secure JWT secret if one doesn't exist
- * Must be stored in .env file (not in code)
- */
-function generateJWTSecret() {
-  const secret = crypto.randomBytes(32).toString('hex');
-  console.warn('[JWT] WARNING: JWT_SECRET not found in .env. Generated temporary secret.');
-  console.warn('[JWT] Please add to .env: JWT_SECRET=' + secret);
-  return secret;
+if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
+  throw new Error('[JWT] JWT_SECRET is not set. Add it to .env and restart.');
 }
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h';
 
 /**
  * Sign a JWT token

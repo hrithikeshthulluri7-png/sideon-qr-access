@@ -1,4 +1,19 @@
 require('dotenv').config();
+
+// ===============================================
+// REQUIRED SECRETS GUARD — must be first
+// Server refuses to start if any secret is missing.
+// ===============================================
+if (process.env.NODE_ENV !== 'test') {
+  const REQUIRED_ENV = ['JWT_SECRET', 'ADMIN_JWT_SECRET', 'ADMIN_SETUP_KEY', 'EVENT_PIN'];
+  const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+  if (missing.length > 0) {
+    console.error(`[FATAL] Missing required environment variables: ${missing.join(', ')}`);
+    console.error('[FATAL] Set these in your .env file and restart. Server will not start without them.');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const helmet = require('helmet');
 const path = require('path');
