@@ -170,6 +170,7 @@ app.use('/api/check-in', memberRateLimiter);
 app.use('/api/verify', memberRateLimiter);
 app.use('/api/check-in-status', failureRateLimiter);
 app.use('/api/verify-pin', failureRateLimiter);
+app.use('/api/generate-qr', memberRateLimiter);
 
 // ===============================================
 // STATIC FILES (admin + user UI)

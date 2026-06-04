@@ -10,7 +10,7 @@ if (!process.env.JWT_SECRET && process.env.NODE_ENV !== 'test') {
   throw new Error('[JWT] JWT_SECRET is not set. Add it to .env and restart.');
 }
 const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
-const JWT_EXPIRY = process.env.JWT_EXPIRY || '1h';
+const JWT_EXPIRY = process.env.JWT_EXPIRY || '15m';
 
 /**
  * Sign a JWT token
